@@ -80,4 +80,4 @@ FOR EACH STATEMENT
 EXECUTE FUNCTION refresh_student_history();
 
 -- Grant permissions
-GRANT SELECT ON student_class_history TO authenticated;
+GRANT SELECT ON my_student_class_history TO authenticated;
