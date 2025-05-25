@@ -35,7 +35,7 @@ JOIN profiles p ON b.student_id = p.id
 WHERE p.role = 'student';
 
 -- Create index on materialized view
-CREATE UNIQUE INDEX student_class_history_pkey ON student_class_history(booking_id);
+CREATE UNIQUE INDEX my_student_class_history_pkey ON student_class_history(booking_id);
 
 -- Create function to get student statistics
 CREATE OR REPLACE FUNCTION get_student_stats(student_id uuid)
