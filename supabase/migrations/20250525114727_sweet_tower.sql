@@ -19,7 +19,7 @@ CREATE INDEX IF NOT EXISTS bookings_date_idx ON bookings(date);
 CREATE INDEX IF NOT EXISTS bookings_status_idx ON bookings(status);
 
 -- Create materialized view for student history with profile data
-CREATE MATERIALIZED VIEW student_class_history AS
+CREATE MATERIALIZED VIEW my_student_class_history AS
 SELECT 
   b.id as booking_id,
   b.student_id,
