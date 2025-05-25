@@ -56,37 +56,40 @@ const ProfilePage = () => {
     }, 1000);
   };
 
-  const handleDeleteAccount = async () => {
-    if (deleteConfirmText !== 'ELIMINAR') {
-      toast.error('Por favor, escribe ELIMINAR para confirmar');
-      return;
+const handleDeleteAccount = async () => {
+  if (deleteConfirmText !== 'ELIMINAR') {
+    toast.error('Por favor, escribe ELIMINAR para confirmar');
+    return;
+  }
+
+  setIsDeletingAccount(true);
+
+  try {
+    const response = await fetch('/api/delete-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user?.id }),
+    });
+
+    // Si hay contenido, parsea JSON. Si no, sáltatelo.
+    let data = null;
+    const text = await response.text();
+    if (text) data = JSON.parse(text);
+
+    if (!response.ok) {
+      throw new Error(data?.message || 'Error al eliminar la cuenta');
     }
 
-    setIsDeletingAccount(true);
-
-    try {
-      const response = await fetch('/api/delete-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user?.id }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Error al eliminar la cuenta');
-      }
-
-      setIsDeletingAccount(false);
-      await logout();
-      navigate('/');
-      toast.success('Cuenta eliminada con éxito');
-    } catch (error) {
-      console.error('Error deleting account:', error);
-      toast.error(error instanceof Error ? error.message : 'Error al eliminar la cuenta');
-      setIsDeletingAccount(false);
-    }
-  };
+    setIsDeletingAccount(false);
+    await logout();
+    navigate('/');
+    toast.success('Cuenta eliminada con éxito');
+  } catch (error) {
+    console.error('Error deleting account:', error);
+    toast.error(error instanceof Error ? error.message : 'Error al eliminar la cuenta');
+    setIsDeletingAccount(false);
+  }
+};
   
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
