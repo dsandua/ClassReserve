@@ -82,7 +82,7 @@ EXECUTE FUNCTION refresh_student_history();
 
 -- Grant necessary permissions to authenticated users
 ALTER MATERIALIZED VIEW my_student_class_history OWNER TO authenticated;
-GRANT SELECT ON student_class_history TO authenticated;
+GRANT SELECT ON my_student_class_history TO authenticated;
 GRANT EXECUTE ON FUNCTION get_student_stats TO authenticated;
 GRANT EXECUTE ON FUNCTION refresh_student_history TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON bookings TO authenticated;
