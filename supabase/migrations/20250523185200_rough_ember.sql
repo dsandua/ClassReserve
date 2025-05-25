@@ -19,7 +19,7 @@ CREATE INDEX IF NOT EXISTS bookings_date_idx ON bookings(date);
 CREATE INDEX IF NOT EXISTS bookings_status_idx ON bookings(status);
 
 -- Create materialized view for student history with profile data
-CREATE MATERIALIZED VIEW student_class_history AS
+CREATE MATERIALIZED VIEW my_student_class_history AS
 SELECT 
   b.id as booking_id,
   b.student_id,
@@ -35,7 +35,7 @@ JOIN profiles p ON b.student_id = p.id
 WHERE p.role = 'student';
 
 -- Create index on materialized view
-CREATE UNIQUE INDEX student_class_history_pkey ON student_class_history(booking_id);
+CREATE UNIQUE INDEX my_student_class_history_pkey ON my_student_class_history(booking_id);
 
 -- Create function to get student statistics
 CREATE OR REPLACE FUNCTION get_student_stats(student_id uuid)
@@ -68,7 +68,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  REFRESH MATERIALIZED VIEW CONCURRENTLY student_class_history;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY my_student_class_history;
   RETURN NULL;
 END;
 $$;
