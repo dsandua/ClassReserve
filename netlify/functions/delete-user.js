@@ -7,7 +7,9 @@ const supabase = createClient(
 
 exports.handler = async function(event, context) {
   console.log("Función llamada. Event:", event.body);
-  if (event.httpMethod !== 'POST') {
+
+  if (event.httpMethod !== "POST") {
+    console.log("Método no permitido");
     return {
       statusCode: 405,
       body: JSON.stringify({ error: 'Método no permitido' }),
@@ -17,7 +19,9 @@ exports.handler = async function(event, context) {
   let userId;
   try {
     userId = JSON.parse(event.body).userId;
+    console.log("userId recibido:", userId);
   } catch (err) {
+    console.log("No se ha recibido el userId:", err);
     return {
       statusCode: 400,
       body: JSON.stringify({ error: 'No se ha recibido el userId' }),
@@ -31,20 +35,26 @@ exports.handler = async function(event, context) {
     .eq('id', userId);
 
   if (profileError) {
+    console.log("Error borrando profile:", profileError);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Error borrando profile' }),
+      body: JSON.stringify({ error: 'Error borrando profile', detalle: profileError }),
     };
+  } else {
+    console.log("Perfil borrado correctamente");
   }
 
   // 2. Borra el usuario de Auth
   const { error: userError } = await supabase.auth.admin.deleteUser(userId);
 
   if (userError) {
+    console.log("Error borrando auth.user:", userError);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Error borrando auth.user' }),
+      body: JSON.stringify({ error: 'Error borrando auth.user', detalle: userError }),
     };
+  } else {
+    console.log("Usuario auth borrado correctamente");
   }
 
   return {
