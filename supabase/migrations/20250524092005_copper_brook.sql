@@ -20,7 +20,7 @@ TRUNCATE TABLE notifications CASCADE;
 TRUNCATE TABLE bookings CASCADE;
 TRUNCATE TABLE blocked_times CASCADE;
 TRUNCATE TABLE availability CASCADE;
-REFRESH MATERIALIZED VIEW student_class_history;
+REFRESH MATERIALIZED VIEW my_student_class_history;
 
 -- Add check constraints
 ALTER TABLE bookings
