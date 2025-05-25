@@ -65,11 +65,11 @@ const handleDeleteAccount = async () => {
   setIsDeletingAccount(true);
 
   try {
-    const response = await fetch('/api/delete-user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user?.id }),
-    });
+const response = await fetch('/.netlify/functions/delete-user', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ userId: user?.id }),
+});
 
     // Si hay contenido, parsea JSON. Si no, sáltatelo.
     let data = null;
