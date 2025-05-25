@@ -1,16 +1,27 @@
-import { createClient } from '@supabase/supabase-js';
+const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY // OJO, aquí debe ser la Service Role Key
+  process.env.SUPABASE_SERVICE_ROLE_KEY // Aquí tu Service Role Key
 );
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Método no permitido' });
+exports.handler = async function(event, context) {
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: 'Método no permitido' }),
+    };
   }
 
-  const { userId } = req.body;
+  let userId;
+  try {
+    userId = JSON.parse(event.body).userId;
+  } catch (err) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'No se ha recibido el userId' }),
+    };
+  }
 
   // 1. Borra el perfil
   const { error: profileError } = await supabase
@@ -19,15 +30,24 @@ export default async function handler(req, res) {
     .eq('id', userId);
 
   if (profileError) {
-    return res.status(500).json({ error: 'Error borrando profile' });
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Error borrando profile' }),
+    };
   }
 
   // 2. Borra el usuario de Auth
   const { error: userError } = await supabase.auth.admin.deleteUser(userId);
 
   if (userError) {
-    return res.status(500).json({ error: 'Error borrando auth.user' });
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Error borrando auth.user' }),
+    };
   }
 
-  res.status(200).json({ success: true });
-}
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ success: true }),
+  };
+};
