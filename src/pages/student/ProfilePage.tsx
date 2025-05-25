@@ -56,33 +56,37 @@ const ProfilePage = () => {
     }, 1000);
   };
 
-const handleDeleteAccount = async () => {
-  if (deleteConfirmText !== 'ELIMINAR') {
-    toast.error('Por favor, escribe ELIMINAR para confirmar');
-    return;
-  }
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'ELIMINAR') {
+      toast.error('Por favor, escribe ELIMINAR para confirmar');
+      return;
+    }
 
-  setIsDeletingAccount(true);
+    setIsDeletingAccount(true);
 
-  try {
-    // Aquí haces la llamada al backend seguro
-    const response = await fetch('/api/delete-user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user?.id }),
-    });
+    try {
+      const response = await fetch('/api/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user?.id }),
+      });
 
-    if (!response.ok) throw new Error('Error al eliminar la cuenta');
+      const data = await response.json();
 
-    await logout();
-    navigate('/');
-    toast.success('Cuenta eliminada con éxito');
-  } catch (error) {
-    console.error('Error deleting account:', error);
-    toast.error('Error al eliminar la cuenta');
-    setIsDeletingAccount(false);
-  }
-};
+      if (!response.ok) {
+        throw new Error(data.message || 'Error al eliminar la cuenta');
+      }
+
+      setIsDeletingAccount(false);
+      await logout();
+      navigate('/');
+      toast.success('Cuenta eliminada con éxito');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      toast.error(error instanceof Error ? error.message : 'Error al eliminar la cuenta');
+      setIsDeletingAccount(false);
+    }
+  };
   
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
