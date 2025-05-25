@@ -6,6 +6,7 @@ const supabase = createClient(
 );
 
 exports.handler = async function(event, context) {
+  console.log("Función llamada. Event:", event.body);
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
