@@ -1,0 +1,1 @@
+GRANT SELECT ON my_student_class_history TO authenticated;
