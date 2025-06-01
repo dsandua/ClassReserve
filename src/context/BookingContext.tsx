@@ -167,6 +167,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
 
   const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
     const { data, error } = await supabase
+      .schema('public')
       .from('my_student_class_history')
       .select('*')
       .eq('student_id', studentId);
