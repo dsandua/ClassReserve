@@ -188,7 +188,7 @@ const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
 };
 
   const confirmBooking = async (bookingId: string): Promise<boolean> => {
-    try {
+    try { 
       const { data: booking, error } = await supabase
         .from('bookings')
         .update({
