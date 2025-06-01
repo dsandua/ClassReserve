@@ -165,30 +165,27 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     };
   };
 
-  const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
-    const { data, error } = await supabase
-      .schema('public')
-      .from('my_student_class_history')
-      .select('*')
-      .eq('student_id', studentId);
+const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
+  const { data, error } = await supabase
+    .rpc('get_my_student_class_history', { input_student_id: studentId });
 
-    if (error) {
-      console.error('Error fetching student bookings:', error);
-      return [];
-    }
+  if (error) {
+    console.error('Error al llamar a la función RPC:', error);
+    return [];
+  }
 
-    return data.map(booking => ({
-      id: booking.booking_id,
-      studentId: booking.student_id,
-      studentName: booking.student_name,
-      date: booking.date,
-      startTime: booking.start_time,
-      endTime: booking.end_time,
-      status: booking.status,
-      notes: booking.notes,
-      createdAt: booking.created_at
-    }));
-  };
+  return data.map(booking => ({
+    id: booking.booking_id,
+    studentId: booking.student_id,
+    studentName: booking.student_name,
+    date: booking.date,
+    startTime: booking.start_time,
+    endTime: booking.end_time,
+    status: booking.status,
+    notes: booking.notes,
+    createdAt: booking.created_at
+  }));
+};
 
   const confirmBooking = async (bookingId: string): Promise<boolean> => {
     try {
