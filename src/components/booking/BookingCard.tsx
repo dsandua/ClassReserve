@@ -22,7 +22,6 @@ const BookingCard = ({
   const [isEditingLink, setIsEditingLink] = useState(false);
   const [meetingLink, setMeetingLink] = useState(booking.customMeetingLink || booking.meetingLink || '');
   const { updateMeetingLink } = useBooking();
-  
   const bookingDate = parseISO(booking.date);
   
   // Format date and time for display
@@ -94,7 +93,7 @@ const BookingCard = ({
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
                   <span className="text-sm font-medium text-gray-600">
-                    {booking.studentName.charAt(0)}
+                  {booking.studentName?.charAt(0) ?? ''}
                   </span>
                 </div>
               </div>
