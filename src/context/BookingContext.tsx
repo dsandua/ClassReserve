@@ -250,11 +250,29 @@ const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
     }
   };
 
-  const getTeacherBookings = async (): Promise<Booking[]> => {
-    const { data, error } = await supabase
-      .from('bookings')
-      .select('*')
-      .order('date', { ascending: false });
+const getTeacherBookings = async (): Promise<Booking[]> => {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('*, profiles(name)')
+    .order('date', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching teacher bookings:', error);
+    return [];
+  }
+
+  return data.map(booking => ({
+    id: booking.id,
+    studentId: booking.student_id,
+    studentName: booking.profiles?.name || 'Sin nombre',
+    date: booking.date,
+    startTime: booking.start_time,
+    endTime: booking.end_time,
+    status: booking.status,
+    notes: booking.notes,
+    createdAt: booking.created_at
+  }));
+};
 
     if (error) {
       console.error('Error fetching teacher bookings:', error);
