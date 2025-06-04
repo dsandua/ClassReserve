@@ -27,7 +27,6 @@ type NotificationsContextType = {
   markAllAsRead: () => Promise<void>;
   deleteNotification: (notificationId: string) => Promise<void>;
   deleteAllNotifications: () => Promise<void>;
-  // Nueva función para crear notificaciones
   createNotification: (type: NotificationType, title: string, message: string, link?: string) => Promise<void>;
 };
 
@@ -37,10 +36,8 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const { user } = useAuth();
 
-  // Calculate unread count
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Format relative time
   const getRelativeTime = (date: Date) => {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
@@ -55,7 +52,6 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     return 'ahora';
   };
 
-  // Fetch notifications
   useEffect(() => {
     if (!user) return;
 
@@ -88,7 +84,6 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
 
     fetchNotifications();
 
-    // Subscribe to real-time notifications
     const subscription = supabase
       .channel('notifications')
       .on('postgres_changes', {
@@ -109,7 +104,6 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
           };
           setNotifications(prev => [newNotification, ...prev]);
           
-          // Show toast for new notification
           toast(newNotification.title, {
             description: newNotification.message,
             icon: '🔔'
@@ -123,26 +117,23 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     };
   }, [user]);
 
-  // NUEVA FUNCIÓN: Crear notificación
   const createNotification = async (
     type: NotificationType, 
     title: string, 
     message: string, 
     link?: string
   ) => {
+    if (!user) {
+      toast.error('Usuario no autenticado');
+      return;
+    }
+
     try {
-      // Verificar que el usuario esté autenticado
-      if (!user) {
-        throw new Error('Usuario no autenticado');
-      }
-
-      console.log('Creando notificación para user_id:', user.id); // Debug
-
       const { data, error } = await supabase
         .from('notifications')
         .insert([
           {
-            user_id: user.id, // Esto debe coincidir con auth.uid()
+            user_id: user.id,
             type,
             title,
             message,
@@ -154,14 +145,8 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
         .select()
         .single();
 
-      if (error) {
-        console.error('Error al crear notificación:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('Notificación creada exitosamente:', data); // Debug
-
-      // Actualizar el estado local inmediatamente
       const newNotification = {
         id: data.id,
         type: data.type as NotificationType,
@@ -173,23 +158,20 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
       };
 
       setNotifications(prev => [newNotification, ...prev]);
-      
     } catch (error) {
       console.error('Error en createNotification:', error);
       toast.error('Error al crear la notificación');
-      throw error; // Re-lanzar para que el componente que llama pueda manejarlo
     }
   };
 
   const markAsRead = async (notificationId: string) => {
+    if (!user) {
+      toast.error('Usuario no autenticado');
+      return;
+    }
+
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', notificationId);
-
-      if (error) throw error;
-
+      // Optimistically update the UI
       setNotifications(prev =>
         prev.map(notification =>
           notification.id === notificationId
@@ -197,6 +179,24 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
             : notification
         )
       );
+
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', notificationId)
+        .eq('user_id', user.id); // Add user_id check for RLS
+
+      if (error) {
+        // Revert optimistic update if the operation fails
+        setNotifications(prev =>
+          prev.map(notification =>
+            notification.id === notificationId
+              ? { ...notification, read: false }
+              : notification
+          )
+        );
+        throw error;
+      }
     } catch (error) {
       console.error('Error marking notification as read:', error);
       toast.error('Error al marcar la notificación como leída');
@@ -204,59 +204,136 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
   };
 
   const markAllAsRead = async () => {
+    if (!user) {
+      toast.error('Usuario no autenticado');
+      return;
+    }
+
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
-
+      // Optimistically update the UI
       setNotifications(prev =>
         prev.map(notification => ({ ...notification, read: true }))
       );
+
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', user.id);
+
+      if (error) {
+        // Revert optimistic update if the operation fails
+        throw error;
+      }
 
       toast.success('Todas las notificaciones marcadas como leídas');
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
       toast.error('Error al marcar las notificaciones como leídas');
+      // Revert optimistic update
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id);
+      if (data) {
+        setNotifications(data.map(n => ({
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          time: getRelativeTime(new Date(n.created_at)),
+          read: n.read,
+          link: n.link
+        })));
+      }
     }
   };
 
   const deleteNotification = async (notificationId: string) => {
+    if (!user) {
+      toast.error('Usuario no autenticado');
+      return;
+    }
+
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId);
-
-      if (error) throw error;
-
+      // Optimistically update the UI
       setNotifications(prev =>
         prev.filter(notification => notification.id !== notificationId)
       );
+
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId)
+        .eq('user_id', user.id); // Add user_id check for RLS
+
+      if (error) {
+        // Revert optimistic update if the operation fails
+        throw error;
+      }
 
       toast.success('Notificación eliminada');
     } catch (error) {
       console.error('Error deleting notification:', error);
       toast.error('Error al eliminar la notificación');
+      // Revert optimistic update by refetching
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id);
+      if (data) {
+        setNotifications(data.map(n => ({
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          time: getRelativeTime(new Date(n.created_at)),
+          read: n.read,
+          link: n.link
+        })));
+      }
     }
   };
 
   const deleteAllNotifications = async () => {
+    if (!user) {
+      toast.error('Usuario no autenticado');
+      return;
+    }
+
     try {
+      // Optimistically update the UI
+      setNotifications([]);
+
       const { error } = await supabase
         .from('notifications')
         .delete()
-        .eq('user_id', user?.id);
+        .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        // Revert optimistic update if the operation fails
+        throw error;
+      }
 
-      setNotifications([]);
       toast.success('Todas las notificaciones eliminadas');
     } catch (error) {
       console.error('Error deleting all notifications:', error);
       toast.error('Error al eliminar las notificaciones');
+      // Revert optimistic update by refetching
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id);
+      if (data) {
+        setNotifications(data.map(n => ({
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          time: getRelativeTime(new Date(n.created_at)),
+          read: n.read,
+          link: n.link
+        })));
+      }
     }
   };
 
@@ -268,7 +345,7 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
       markAllAsRead,
       deleteNotification,
       deleteAllNotifications,
-      createNotification, // Nueva función disponible
+      createNotification,
     }}>
       {children}
     </NotificationsContext.Provider>
