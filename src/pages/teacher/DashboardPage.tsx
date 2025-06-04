@@ -6,6 +6,12 @@ import { useBooking } from '../../hooks/useBooking';
 import { Booking } from '../../context/BookingContext';
 import BookingCard from '../../components/booking/BookingCard';
 import toast from 'react-hot-toast';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 const TeacherDashboardPage = () => {
   const { user } = useAuth();
@@ -13,11 +19,20 @@ const TeacherDashboardPage = () => {
   const [pendingBookings, setPendingBookings] = useState<Booking[]>([]);
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [studentCount, setStudentCount] = useState(0);
   
-  // Fetch bookings when component mounts
+  // Fetch bookings and student count when component mounts
   useEffect(() => {
-    const fetchBookings = async () => {
+    const fetchData = async () => {
       try {
+        // Get student count (excluding teacher)
+        const { count } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('role', 'student');
+        
+        setStudentCount(count || 0);
+
         const allBookings = await getTeacherBookings();
         const pending = await getPendingBookings();
         
@@ -31,12 +46,12 @@ const TeacherDashboardPage = () => {
         setPendingBookings(pending);
         setUpcomingBookings(upcoming);
       } catch (error) {
-        console.error('Error fetching bookings:', error);
-        toast.error('Error al cargar las reservas');
+        console.error('Error fetching data:', error);
+        toast.error('Error al cargar los datos');
       }
     };
 
-    fetchBookings();
+    fetchData();
   }, [getTeacherBookings, getPendingBookings]);
   
   // Handle confirm booking
@@ -149,7 +164,7 @@ const TeacherDashboardPage = () => {
                 <dl>
                   <dt className="text-sm font-medium text-gray-500">Total de alumnos</dt>
                   <dd>
-                    <div className="text-lg font-medium text-gray-900">2</div>
+                    <div className="text-lg font-medium text-gray-900">{studentCount}</div>
                   </dd>
                 </dl>
               </div>
