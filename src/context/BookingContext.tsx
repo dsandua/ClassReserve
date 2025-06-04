@@ -2,6 +2,7 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 import { addDays, format, parseISO, isSameDay } from 'date-fns';
 import { createClient } from '@supabase/supabase-js';
 import toast from 'react-hot-toast';
+import { useAuth } from '../hooks/useAuth';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -92,6 +93,7 @@ const sendEmail = async (to: string, subject: string, body: string) => {
 export const BookingProvider = ({ children }: { children: ReactNode }) => {
   const [blockedTimes, setBlockedTimes] = useState<BlockedTime[]>([]);
   const [availabilitySettings, setAvailabilitySettings] = useState<DayAvailability[]>([]);
+  const { user } = useAuth();
 
   const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
     const dayOfWeek = date.getDay();
@@ -329,6 +331,7 @@ const cancelBooking = async (bookingId: string): Promise<boolean> => {
       return false;
     }
   };
+
   const getTeacherBookings = async (): Promise<Booking[]> => {
     const { data, error } = await supabase
       .from('bookings')
