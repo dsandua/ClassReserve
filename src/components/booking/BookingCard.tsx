@@ -73,7 +73,11 @@ const BookingCard = ({
     }
   };
 
-  const handleCancelBooking = async () => {
+const handleCancelBooking = async () => {
+    if (!confirm('¿Estás seguro de que quieres cancelar esta clase?')) {
+      return;
+    }
+
     try {
       const success = await cancelBooking(booking.id);
       if (success) {
@@ -81,6 +85,8 @@ const BookingCard = ({
         if (onCancel) {
           onCancel(booking.id);
         }
+      } else {
+        toast.error('No se pudo cancelar la clase');
       }
     } catch (error) {
       console.error('Error cancelling booking:', error);
