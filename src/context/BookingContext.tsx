@@ -158,7 +158,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     await supabase
       .from('notifications')
       .insert([{
-        user_id: process.env.VITE_TEACHER_ID,
+        user_id: import.meta.env.VITE_TEACHER_ID,
         type: 'booking',
         title: 'Nueva solicitud de clase',
         message: `${studentName} ha solicitado una clase para el ${date} de ${startTime} a ${endTime}`,
