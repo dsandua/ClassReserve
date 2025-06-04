@@ -14,6 +14,7 @@ const DashboardPage = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
   const [pendingBookings, setPendingBookings] = useState<Booking[]>([]);
+  const [completedBookings, setCompletedBookings] = useState<Booking[]>([]);
   
   const fetchBookings = async () => {
     if (user) {
@@ -39,9 +40,13 @@ const DashboardPage = () => {
       // Filter pending bookings
       const pending = userBookings.filter(booking => booking.status === 'pending');
       
+      // Filter completed bookings
+      const completed = userBookings.filter(booking => booking.status === 'completed');
+      
       setBookings(userBookings);
       setUpcomingBookings(upcoming);
       setPendingBookings(pending);
+      setCompletedBookings(completed);
     }
   };
 
@@ -71,7 +76,7 @@ const DashboardPage = () => {
       </div>
       
       {/* Stats overview */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-4 mb-8">
         <div className="bg-white overflow-hidden shadow-sm rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             <div className="flex items-center">
@@ -121,6 +126,24 @@ const DashboardPage = () => {
                     <div className="text-lg font-medium text-gray-900">
                       {bookings.filter(b => b.status === 'completed').length}
                     </div>
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white overflow-hidden shadow-sm rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0 bg-success-100 rounded-md p-3">
+                <Check className="h-6 w-6 text-success-600" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500">Clases completadas</dt>
+                  <dd>
+                    <div className="text-lg font-medium text-gray-900">{completedBookings.length}</div>
                   </dd>
                 </dl>
               </div>
