@@ -5,6 +5,12 @@ import { Filter, Search, Download, FileText, ChevronDown, Trash } from 'lucide-r
 import { useBooking } from '../../hooks/useBooking';
 import { Booking } from '../../context/BookingContext';
 import toast from 'react-hot-toast';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 const HistoryPage = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -16,23 +22,25 @@ const HistoryPage = () => {
   const [bookingNotes, setBookingNotes] = useState('');
   const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   const { getTeacherBookings } = useBooking();
+
+  const fetchBookings = async () => {
+    try {
+      setIsLoading(true);
+      const allBookings = await getTeacherBookings();
+      setBookings(allBookings);
+      setFilteredBookings(allBookings);
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+      toast.error('Error al cargar las reservas');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        const allBookings = await getTeacherBookings();
-        setBookings(Array.isArray(allBookings) ? allBookings : []);
-        setFilteredBookings(Array.isArray(allBookings) ? allBookings : []);
-      } catch (error) {
-        console.error('Error fetching bookings:', error);
-        toast.error('Error al cargar las reservas');
-        setBookings([]);
-        setFilteredBookings([]);
-      }
-    };
-    
     fetchBookings();
   }, [getTeacherBookings]);
   
@@ -59,7 +67,93 @@ const HistoryPage = () => {
     
     setFilteredBookings(filtered);
   }, [bookings, searchQuery, statusFilter]);
+
+  const handleDeleteBooking = async () => {
+    if (!selectedBooking) return;
+    
+    try {
+      // Eliminar la reserva de la base de datos
+      const { error } = await supabase
+        .from('bookings')
+        .delete()
+        .eq('id', selectedBooking.id);
+
+      if (error) throw error;
+      
+      // Actualizar el estado local
+      setBookings(prev => prev.filter(booking => booking.id !== selectedBooking.id));
+      setFilteredBookings(prev => prev.filter(booking => booking.id !== selectedBooking.id));
+      setShowDeleteModal(false);
+      setSelectedBooking(null);
+      toast.success('Reserva eliminada con éxito');
+    } catch (error) {
+      console.error('Error deleting booking:', error);
+      toast.error('Error al eliminar la reserva');
+    }
+  };
+
+  const handleStatusChange = async (bookingId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: newStatus })
+        .eq('id', bookingId);
+
+      if (error) throw error;
+
+      setBookings(prev => prev.map(booking => {
+        if (booking.id === bookingId) {
+          return {
+            ...booking,
+            status: newStatus as Booking['status']
+          };
+        }
+        return booking;
+      }));
+      setShowStatusMenu(null);
+      toast.success('Estado actualizado con éxito');
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error('Error al actualizar el estado');
+    }
+  };
   
+  const handleExportData = () => {
+    toast.success('Exportación iniciada. El archivo se descargará automáticamente.');
+  };
+  
+  const handleOpenNotesModal = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setBookingNotes(booking.notes || '');
+    setShowNotesModal(true);
+  };
+  
+  const handleSaveNotes = async () => {
+    if (!selectedBooking) return;
+    
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ notes: bookingNotes })
+        .eq('id', selectedBooking.id);
+
+      if (error) throw error;
+
+      setBookings(prev => prev.map(booking => {
+        if (booking.id === selectedBooking.id) {
+          return { ...booking, notes: bookingNotes };
+        }
+        return booking;
+      }));
+
+      toast.success('Notas guardadas correctamente');
+      setShowNotesModal(false);
+    } catch (error) {
+      console.error('Error saving notes:', error);
+      toast.error('Error al guardar las notas');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
@@ -89,47 +183,6 @@ const HistoryPage = () => {
       default:
         return null;
     }
-  };
-
-  const handleStatusChange = (bookingId: string, newStatus: string) => {
-    setBookings(prev => prev.map(booking => {
-      if (booking.id === bookingId) {
-        return {
-          ...booking,
-          status: newStatus as Booking['status']
-        };
-      }
-      return booking;
-    }));
-    setShowStatusMenu(null);
-    toast.success('Estado actualizado con éxito');
-  };
-  
-  const handleExportData = () => {
-    toast.success('Exportación iniciada. El archivo se descargará automáticamente.');
-  };
-  
-  const handleOpenNotesModal = (booking: Booking) => {
-    setSelectedBooking(booking);
-    setBookingNotes(booking.notes || '');
-    setShowNotesModal(true);
-  };
-  
-  const handleSaveNotes = () => {
-    if (!selectedBooking) return;
-    
-    toast.success('Notas guardadas correctamente');
-    setShowNotesModal(false);
-  };
-
-  const handleDeleteBooking = () => {
-    if (!selectedBooking) return;
-    
-    setBookings(prev => prev.filter(booking => booking.id !== selectedBooking.id));
-    setFilteredBookings(prev => prev.filter(booking => booking.id !== selectedBooking.id));
-    setShowDeleteModal(false);
-    setSelectedBooking(null);
-    toast.success('Reserva eliminada con éxito');
   };
   
   return (
@@ -187,7 +240,11 @@ const HistoryPage = () => {
       </div>
       
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        {filteredBookings.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-10">
+            <p className="text-gray-500">Cargando historial...</p>
+          </div>
+        ) : filteredBookings.length === 0 ? (
           <div className="text-center py-10">
             <p className="text-gray-500">No se encontraron clases.</p>
           </div>
