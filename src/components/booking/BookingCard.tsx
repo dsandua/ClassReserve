@@ -22,6 +22,7 @@ const BookingCard = ({
 }: BookingCardProps) => {
   const [isEditingLink, setIsEditingLink] = useState(false);
   const [meetingLink, setMeetingLink] = useState(booking.customMeetingLink || booking.meetingLink || '');
+  const [isCancelling, setIsCancelling] = useState(false);
   const { updateMeetingLink, cancelBooking } = useBooking();
   const { user } = useAuth();
   const bookingDate = parseISO(booking.date);
@@ -73,9 +74,13 @@ const BookingCard = ({
     }
   };
 
-const handleCancelBooking = async () => {
+  const handleCancelBooking = async () => {
+    if (isCancelling) return;
+    
     try {
+      setIsCancelling(true);
       const success = await cancelBooking(booking.id);
+      
       if (success) {
         toast.success('Clase cancelada con éxito');
         if (onCancel) {
@@ -87,6 +92,8 @@ const handleCancelBooking = async () => {
     } catch (error) {
       console.error('Error cancelling booking:', error);
       toast.error('Error al cancelar la clase');
+    } finally {
+      setIsCancelling(false);
     }
   };
   
@@ -215,10 +222,11 @@ const handleCancelBooking = async () => {
           {!isTeacher && (booking.status === 'pending' || booking.status === 'confirmed') && (
             <button
               onClick={handleCancelBooking}
+              disabled={isCancelling}
               className="flex items-center justify-center btn btn-error w-full"
             >
               <X className="h-4 w-4 mr-1" />
-              Cancelar clase
+              {isCancelling ? 'Cancelando...' : 'Cancelar clase'}
             </button>
           )}
         </div>
