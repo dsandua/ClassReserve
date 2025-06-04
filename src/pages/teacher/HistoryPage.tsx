@@ -158,25 +158,25 @@ const HistoryPage = () => {
     switch (status) {
       case 'pending':
         return (
-          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-warning-100 text-warning-800">
             Pendiente
           </span>
         );
       case 'confirmed':
         return (
-          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-success-100 text-success-800">
             Confirmada
           </span>
         );
       case 'cancelled':
         return (
-          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-error-100 text-error-800">
             Cancelada
           </span>
         );
       case 'completed':
         return (
-          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-100 text-primary-800">
             Completada
           </span>
         );
@@ -266,7 +266,7 @@ const HistoryPage = () => {
                     Estado
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Reservada el
+                    Notas
                   </th>
                   <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
@@ -292,7 +292,7 @@ const HistoryPage = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {format(parseISO(booking.date), 'dd/MM/yyyy')}
+                        {format(parseISO(booking.date), "d 'de' MMMM, yyyy", { locale: es })}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -344,23 +344,27 @@ const HistoryPage = () => {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(booking.createdAt).toLocaleDateString()}
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-500 max-w-xs truncate">
+                        {booking.notes || '-'}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-3">
                         <button
-                          className="text-primary-600 hover:text-primary-900 flex items-center"
+                          className="text-primary-600 hover:text-primary-900"
                           onClick={() => handleOpenNotesModal(booking)}
+                          title="Ver notas"
                         >
                           <FileText className="h-4 w-4" />
                         </button>
                         <button
-                          className="text-error-600 hover:text-error-900 flex items-center"
+                          className="text-error-600 hover:text-error-900"
                           onClick={() => {
                             setSelectedBooking(booking);
                             setShowDeleteModal(true);
                           }}
+                          title="Eliminar reserva"
                         >
                           <Trash className="h-4 w-4" />
                         </button>
@@ -374,6 +378,7 @@ const HistoryPage = () => {
         )}
       </div>
       
+      {/* Add Student Modal */}
       {showNotesModal && selectedBooking && (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 animate-slide-in">
@@ -413,6 +418,7 @@ const HistoryPage = () => {
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedBooking && (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 animate-slide-in">
