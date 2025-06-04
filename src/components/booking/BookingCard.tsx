@@ -4,6 +4,7 @@ import { Clock, Check, X, Calendar, Video, Link as LinkIcon } from 'lucide-react
 import { Booking } from '../../context/BookingContext';
 import { useState } from 'react';
 import { useBooking } from '../../hooks/useBooking';
+import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 
 type BookingCardProps = {
@@ -21,7 +22,8 @@ const BookingCard = ({
 }: BookingCardProps) => {
   const [isEditingLink, setIsEditingLink] = useState(false);
   const [meetingLink, setMeetingLink] = useState(booking.customMeetingLink || booking.meetingLink || '');
-  const { updateMeetingLink } = useBooking();
+  const { updateMeetingLink, cancelBooking } = useBooking();
+  const { user } = useAuth();
   const bookingDate = parseISO(booking.date);
   
   // Format date and time for display
@@ -70,6 +72,21 @@ const BookingCard = ({
       toast.error('Error al actualizar el enlace');
     }
   };
+
+  const handleCancelBooking = async () => {
+    try {
+      const success = await cancelBooking(booking.id);
+      if (success) {
+        toast.success('Clase cancelada con éxito');
+        if (onCancel) {
+          onCancel(booking.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      toast.error('Error al cancelar la clase');
+    }
+  };
   
   const statusInfo = getStatusInfo();
   
@@ -93,7 +110,7 @@ const BookingCard = ({
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
                   <span className="text-sm font-medium text-gray-600">
-                  {booking.studentName?.charAt(0) ?? ''}
+                    {booking.studentName?.charAt(0) ?? ''}
                   </span>
                 </div>
               </div>
@@ -172,23 +189,36 @@ const BookingCard = ({
         </div>
       </div>
       
-      {/* Card actions for teacher */}
-      {isTeacher && booking.status === 'pending' && onConfirm && onCancel && (
+      {/* Card actions */}
+      {(isTeacher ? booking.status === 'pending' : booking.status === 'pending' || booking.status === 'confirmed') && (
         <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex space-x-3">
-          <button
-            onClick={() => onConfirm(booking.id)}
-            className="flex items-center justify-center btn btn-success flex-1"
-          >
-            <Check className="h-4 w-4 mr-1" />
-            Confirmar
-          </button>
-          <button
-            onClick={() => onCancel(booking.id)}
-            className="flex items-center justify-center btn btn-error flex-1"
-          >
-            <X className="h-4 w-4 mr-1" />
-            Rechazar
-          </button>
+          {isTeacher && booking.status === 'pending' && onConfirm && onCancel && (
+            <>
+              <button
+                onClick={() => onConfirm(booking.id)}
+                className="flex items-center justify-center btn btn-success flex-1"
+              >
+                <Check className="h-4 w-4 mr-1" />
+                Confirmar
+              </button>
+              <button
+                onClick={() => onCancel(booking.id)}
+                className="flex items-center justify-center btn btn-error flex-1"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Rechazar
+              </button>
+            </>
+          )}
+          {!isTeacher && (booking.status === 'pending' || booking.status === 'confirmed') && (
+            <button
+              onClick={handleCancelBooking}
+              className="flex items-center justify-center btn btn-error w-full"
+            >
+              <X className="h-4 w-4 mr-1" />
+              Cancelar clase
+            </button>
+          )}
         </div>
       )}
     </div>
