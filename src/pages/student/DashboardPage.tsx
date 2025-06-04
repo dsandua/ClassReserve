@@ -15,39 +15,51 @@ const DashboardPage = () => {
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
   const [pendingBookings, setPendingBookings] = useState<Booking[]>([]);
   
+  const fetchBookings = async () => {
+    if (user) {
+      const userBookings = await getStudentBookings(user.id);
+      
+      const now = new Date();
+      
+      // Filter confirmed upcoming bookings
+      const upcoming = userBookings.filter(booking => {
+        const bookingDate = parseISO(booking.date);
+        const bookingEndTime = booking.endTime.split(':');
+        const bookingDateTime = new Date(
+          bookingDate.getFullYear(),
+          bookingDate.getMonth(),
+          bookingDate.getDate(),
+          parseInt(bookingEndTime[0], 10),
+          parseInt(bookingEndTime[1] || '0', 10)
+        );
+        
+        return bookingDateTime > now && booking.status === 'confirmed';
+      });
+
+      // Filter pending bookings
+      const pending = userBookings.filter(booking => booking.status === 'pending');
+      
+      setBookings(userBookings);
+      setUpcomingBookings(upcoming);
+      setPendingBookings(pending);
+    }
+  };
+
   useEffect(() => {
-    const fetchBookings = async () => {
-      if (user) {
-        const userBookings = await getStudentBookings(user.id);
-        
-        const now = new Date();
-        
-        // Filter confirmed upcoming bookings
-        const upcoming = userBookings.filter(booking => {
-          const bookingDate = parseISO(booking.date);
-          const bookingEndTime = booking.endTime.split(':');
-          const bookingDateTime = new Date(
-            bookingDate.getFullYear(),
-            bookingDate.getMonth(),
-            bookingDate.getDate(),
-            parseInt(bookingEndTime[0], 10),
-            parseInt(bookingEndTime[1] || '0', 10)
-          );
-          
-          return bookingDateTime > now && booking.status === 'confirmed';
-        });
-
-        // Filter pending bookings
-        const pending = userBookings.filter(booking => booking.status === 'pending');
-        
-        setBookings(userBookings);
-        setUpcomingBookings(upcoming);
-        setPendingBookings(pending);
-      }
-    };
-
     fetchBookings();
   }, [user, getStudentBookings]);
+
+  // Función para manejar la cancelación
+  const handleBookingCancelled = (bookingId: string) => {
+    // Actualizar las listas de reservas
+    setPendingBookings(prev => prev.filter(booking => booking.id !== bookingId));
+    setUpcomingBookings(prev => prev.filter(booking => booking.id !== bookingId));
+    setBookings(prev => prev.map(booking => 
+      booking.id === bookingId 
+        ? { ...booking, status: 'cancelled' } 
+        : booking
+    ));
+  };
   
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -126,7 +138,11 @@ const DashboardPage = () => {
           
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {pendingBookings.map((booking) => (
-              <BookingCard key={booking.id} booking={booking} />
+              <BookingCard 
+                key={booking.id} 
+                booking={booking}
+                onCancel={handleBookingCancelled}
+              />
             ))}
           </div>
         </div>
@@ -157,7 +173,11 @@ const DashboardPage = () => {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {upcomingBookings.map((booking) => (
-              <BookingCard key={booking.id} booking={booking} />
+              <BookingCard 
+                key={booking.id} 
+                booking={booking}
+                onCancel={handleBookingCancelled}
+              />
             ))}
           </div>
         )}
