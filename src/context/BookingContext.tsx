@@ -24,6 +24,7 @@ export type Booking = {
   endTime: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   meetingLink?: string;
+  customMeetingLink?: string;
   notes?: string;
   createdAt: string;
 };
@@ -50,15 +51,16 @@ type BookingContextType = {
   createBooking: (studentId: string, studentName: string, date: string, startTime: string, endTime: string) => Promise<Booking>;
   confirmBooking: (bookingId: string) => Promise<boolean>;
   cancelBooking: (bookingId: string) => Promise<boolean>;
-  getStudentBookings: (studentId: string) => Booking[];
-  getTeacherBookings: () => Booking[];
-  getPendingBookings: () => Booking[];
-  getBookingsByDate: (date: Date) => Booking[];
+  getStudentBookings: (studentId: string) => Promise<Booking[]>;
+  getTeacherBookings: () => Promise<Booking[]>;
+  getPendingBookings: () => Promise<Booking[]>;
+  getBookingsByDate: (date: Date) => Promise<Booking[]>;
   blockTimeSlot: (startDate: string, endDate: string, reason?: string) => Promise<boolean>;
   unblockTimeSlot: (startDate: string, endDate: string) => Promise<boolean>;
   isTimeBlocked: (date: Date) => boolean;
   availabilitySettings: DayAvailability[];
   updateAvailabilitySettings: (settings: DayAvailability[]) => Promise<boolean>;
+  updateMeetingLink: (bookingId: string, meetingLink: string) => Promise<boolean>;
 };
 
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
@@ -152,6 +154,17 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
 
     if (error) throw error;
 
+    // Create notification for teacher
+    await supabase
+      .from('notifications')
+      .insert([{
+        user_id: process.env.VITE_TEACHER_ID,
+        type: 'booking',
+        title: 'Nueva solicitud de clase',
+        message: `${studentName} ha solicitado una clase para el ${date} de ${startTime} a ${endTime}`,
+        link: '/teacher/dashboard'
+      }]);
+
     return {
       id: data.id,
       studentId: data.student_id,
@@ -165,27 +178,27 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     };
   };
 
-const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
-  const { data, error } = await supabase
-    .rpc('get_my_student_class_history', { input_student_id: studentId });
+  const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
+    const { data, error } = await supabase
+      .rpc('get_my_student_class_history', { input_student_id: studentId });
 
-  if (error) {
-    console.error('Error al llamar a la función RPC:', error);
-    return [];
-  }
+    if (error) {
+      console.error('Error al llamar a la función RPC:', error);
+      return [];
+    }
 
-  return data.map(booking => ({
-    id: booking.booking_id,
-    studentId: booking.student_id,
-    studentName: booking.student_name,
-    date: booking.date,
-    startTime: booking.start_time,
-    endTime: booking.end_time,
-    status: booking.status,
-    notes: booking.notes,
-    createdAt: booking.created_at
-  }));
-};
+    return data.map(booking => ({
+      id: booking.booking_id,
+      studentId: booking.student_id,
+      studentName: booking.student_name,
+      date: booking.date,
+      startTime: booking.start_time,
+      endTime: booking.end_time,
+      status: booking.status,
+      notes: booking.notes,
+      createdAt: booking.created_at
+    }));
+  };
 
   const confirmBooking = async (bookingId: string): Promise<boolean> => {
     try { 
@@ -196,13 +209,24 @@ const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
           meeting_link: `https://meet.google.com/${Math.random().toString(36).substring(2, 10)}`
         })
         .eq('id', bookingId)
-        .select()
+        .select('*, profiles(name, email)')
         .single();
 
       if (error) throw error;
 
+      // Create notification for student
+      await supabase
+        .from('notifications')
+        .insert([{
+          user_id: booking.student_id,
+          type: 'booking',
+          title: 'Clase confirmada',
+          message: `Tu clase para el ${booking.date} de ${booking.start_time} a ${booking.end_time} ha sido confirmada`,
+          link: '/student/dashboard'
+        }]);
+
       await sendEmail(
-        'student@example.com',
+        booking.profiles.email,
         'Clase confirmada',
         `
           Tu clase ha sido confirmada para el día ${booking.date} 
@@ -227,13 +251,24 @@ const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
         .from('bookings')
         .update({ status: 'cancelled' })
         .eq('id', bookingId)
-        .select()
+        .select('*, profiles(name, email)')
         .single();
 
       if (error) throw error;
 
+      // Create notification for student
+      await supabase
+        .from('notifications')
+        .insert([{
+          user_id: booking.student_id,
+          type: 'cancellation',
+          title: 'Clase cancelada',
+          message: `Tu clase para el ${booking.date} de ${booking.start_time} a ${booking.end_time} ha sido cancelada`,
+          link: '/student/dashboard'
+        }]);
+
       await sendEmail(
-        'student@example.com',
+        booking.profiles.email,
         'Clase cancelada',
         `
           Lo sentimos, tu clase para el día ${booking.date} 
@@ -264,7 +299,7 @@ const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
     return data.map(booking => ({
       id: booking.id,
       studentId: booking.student_id,
-      studentName: booking.student_name,
+      studentName: booking.profiles.name,
       date: booking.date,
       startTime: booking.start_time,
       endTime: booking.end_time,
@@ -277,8 +312,9 @@ const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
   const getPendingBookings = async (): Promise<Booking[]> => {
     const { data, error } = await supabase
       .from('bookings')
-      .select('*')
-      .eq('status', 'pending');
+      .select('*, profiles(name)')
+      .eq('status', 'pending')
+      .order('date', { ascending: true });
 
     if (error) {
       console.error('Error fetching pending bookings:', error);
@@ -288,7 +324,7 @@ const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
     return data.map(booking => ({
       id: booking.id,
       studentId: booking.student_id,
-      studentName: booking.student_name,
+      studentName: booking.profiles.name,
       date: booking.date,
       startTime: booking.start_time,
       endTime: booking.end_time,
@@ -301,7 +337,7 @@ const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
   const getBookingsByDate = async (date: Date): Promise<Booking[]> => {
     const { data, error } = await supabase
       .from('bookings')
-      .select('*')
+      .select('*, profiles(name)')
       .eq('date', format(date, 'yyyy-MM-dd'));
 
     if (error) {
@@ -312,7 +348,7 @@ const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
     return data.map(booking => ({
       id: booking.id,
       studentId: booking.student_id,
-      studentName: booking.student_name,
+      studentName: booking.profiles.name,
       date: booking.date,
       startTime: booking.start_time,
       endTime: booking.end_time,
@@ -385,6 +421,21 @@ const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
     }
   };
 
+  const updateMeetingLink = async (bookingId: string, meetingLink: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ custom_meeting_link: meetingLink })
+        .eq('id', bookingId);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error updating meeting link:', error);
+      return false;
+    }
+  };
+
   return (
     <BookingContext.Provider value={{
       bookings: [],
@@ -401,6 +452,7 @@ const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
       isTimeBlocked,
       availabilitySettings,
       updateAvailabilitySettings,
+      updateMeetingLink,
     }}>
       {children}
     </BookingContext.Provider>
