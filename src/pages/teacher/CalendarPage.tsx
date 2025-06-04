@@ -11,6 +11,7 @@ const CalendarPage = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [bookingsForDate, setBookingsForDate] = useState<Booking[]>([]);
+  const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [isBlockingTime, setIsBlockingTime] = useState(false);
   const [isUnblockingTime, setIsUnblockingTime] = useState(false);
   const [blockStartDate, setBlockStartDate] = useState('');
@@ -18,6 +19,7 @@ const CalendarPage = () => {
   const [blockReason, setBlockReason] = useState('');
   const [unblockStartDate, setUnblockStartDate] = useState('');
   const [unblockEndDate, setUnblockEndDate] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   
   const { 
     getTeacherBookings, 
@@ -29,10 +31,31 @@ const CalendarPage = () => {
     isTimeBlocked,
     availabilitySettings
   } = useBooking();
+
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        setIsLoading(true);
+        const bookings = await getTeacherBookings();
+        setAllBookings(bookings);
+      } catch (error) {
+        console.error('Error fetching bookings:', error);
+        toast.error('Error al cargar las reservas');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchBookings();
+  }, [getTeacherBookings]);
   
   useEffect(() => {
-    const bookings = getBookingsByDate(selectedDate) ?? [];
-    setBookingsForDate(bookings);
+    const fetchBookingsForDate = async () => {
+      const bookings = await getBookingsByDate(selectedDate);
+      setBookingsForDate(bookings);
+    };
+
+    fetchBookingsForDate();
   }, [selectedDate, getBookingsByDate]);
   
   const formattedMonth = format(currentMonth, 'MMMM yyyy', { locale: es });
@@ -45,8 +68,6 @@ const CalendarPage = () => {
   };
   
   const generateCalendarDays = () => {
-    const allBookings = getTeacherBookings() || [];
-    
     const daysInMonth = new Date(
       currentMonth.getFullYear(),
       currentMonth.getMonth() + 1,
@@ -67,15 +88,17 @@ const CalendarPage = () => {
       const day = i + 1;
       const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
       
-      const hasBookings = (Array.isArray(allBookings) ? allBookings : []).some(booking => {
-        const bookingDate = parseISO(booking.date);
-        return isSameDay(bookingDate, date);
-      });
+      const bookingsForDay = allBookings.filter(booking => 
+        isSameDay(parseISO(booking.date), date)
+      );
 
-      const hasPendingBookings = (Array.isArray(allBookings) ? allBookings : []).some(booking => {
-        const bookingDate = parseISO(booking.date);
-        return isSameDay(bookingDate, date) && booking.status === 'pending';
-      });
+      const hasConfirmedBookings = bookingsForDay.some(booking => 
+        booking.status === 'confirmed'
+      );
+
+      const hasPendingBookings = bookingsForDay.some(booking => 
+        booking.status === 'pending'
+      );
       
       const isBlocked = isTimeBlocked(date);
       
@@ -87,7 +110,7 @@ const CalendarPage = () => {
       return {
         day,
         date,
-        hasBookings,
+        hasConfirmedBookings,
         hasPendingBookings,
         isSelected: isSameDay(date, selectedDate),
         isToday: isSameDay(date, new Date()),
@@ -275,7 +298,7 @@ const CalendarPage = () => {
                         {dayObj.hasPendingBookings && (
                           <div className="w-1.5 h-1.5 rounded-full bg-error-500"></div>
                         )}
-                        {dayObj.hasBookings && !dayObj.hasPendingBookings && (
+                        {dayObj.hasConfirmedBookings && (
                           <div className="w-1.5 h-1.5 rounded-full bg-primary-500"></div>
                         )}
                       </div>
@@ -329,18 +352,17 @@ const CalendarPage = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-              {Array.isArray(bookingsForDate) ? (
-                bookingsForDate.map((booking) => (
-                  <BookingCard 
-                    key={booking.id} 
-                    booking={booking} 
-                    isTeacher={true}
-                    onConfirm={booking.status === 'pending' ? handleConfirmBooking : undefined}
-                    onCancel={booking.status === 'pending' ? handleCancelBooking : undefined}
-                  />
-                ))
-              ) : null}
-
+                  {Array.isArray(bookingsForDate) ? (
+                    bookingsForDate.map((booking) => (
+                      <BookingCard 
+                        key={booking.id} 
+                        booking={booking} 
+                        isTeacher={true}
+                        onConfirm={booking.status === 'pending' ? handleConfirmBooking : undefined}
+                        onCancel={booking.status === 'pending' ? handleCancelBooking : undefined}
+                      />
+                    ))
+                  ) : null}
                 </div>
               )}
             </div>
