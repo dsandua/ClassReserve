@@ -5,14 +5,17 @@ import {
   LayoutDashboard, 
   Users, 
   Clock, 
-  Settings, 
+  Settings,
+  Bell,
   ChevronLeft, 
   ChevronRight 
 } from 'lucide-react';
+import { useNotifications } from '../../context/NotificationsContext';
 
 const TeacherSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { unreadCount } = useNotifications();
   
   const isActive = (path: string) => {
     return location.pathname.startsWith(path);
@@ -98,6 +101,27 @@ const TeacherSidebar = () => {
           >
             <Clock className={`${collapsed ? 'h-6 w-6' : 'h-5 w-5 mr-3'}`} />
             {!collapsed && <span>Historial</span>}
+          </Link>
+
+          <Link
+            to="/teacher/notifications"
+            className={`flex items-center ${
+              collapsed ? 'justify-center' : 'px-2'
+            } py-3 text-sm font-medium rounded-md ${
+              isActive('/teacher/notifications')
+                ? 'text-primary-700 bg-primary-50'
+                : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50'
+            }`}
+          >
+            <div className="relative">
+              <Bell className={`${collapsed ? 'h-6 w-6' : 'h-5 w-5 mr-3'}`} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-error-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                  {unreadCount}
+                </span>
+              )}
+            </div>
+            {!collapsed && <span>Notificaciones</span>}
           </Link>
           
           <Link
