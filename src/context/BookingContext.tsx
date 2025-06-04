@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import { addDays, format, parseISO, isSameDay } from 'date-fns';
 import { createClient } from '@supabase/supabase-js';
+import toast from 'react-hot-toast';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
