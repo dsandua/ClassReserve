@@ -15,7 +15,9 @@ const supabase = createClient(
 );
 
 const StudentsPage = () => {
-  // ... (código anterior sin cambios hasta openHistoryModal)
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
+  const [studentBookings, setStudentBookings] = useState<Booking[]>([]);
 
   const openHistoryModal = async (student: User) => {
     setSelectedStudent(student);
@@ -25,8 +27,6 @@ const StudentsPage = () => {
     setStudentBookings(completedBookings);
     setShowHistoryModal(true);
   };
-
-  // ... (resto del código sin cambios hasta el modal de historial)
 
   {showHistoryModal && selectedStudent && (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
@@ -123,7 +123,7 @@ const StudentsPage = () => {
     </div>
   )}
 
-  // ... (resto del código sin cambios)
+  return null; // Add proper return statement for the component
 };
 
 export default StudentsPage;
