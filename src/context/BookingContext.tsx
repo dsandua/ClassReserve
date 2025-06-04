@@ -154,16 +154,25 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
 
     if (error) throw error;
 
-    // Create notification for teacher
-    await supabase
-      .from('notifications')
-      .insert([{
-        user_id: import.meta.env.VITE_TEACHER_ID,
-        type: 'booking',
-        title: 'Nueva solicitud de clase',
-        message: `${studentName} ha solicitado una clase para el ${date} de ${startTime} a ${endTime}`,
-        link: '/teacher/dashboard'
-      }]);
+    // Obtener el ID del profesor
+    const { data: teacherData } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('role', 'teacher')
+      .single();
+
+    if (teacherData) {
+      // Create notification for teacher
+      await supabase
+        .from('notifications')
+        .insert([{
+          user_id: teacherData.id,
+          type: 'booking',
+          title: 'Nueva solicitud de clase',
+          message: `${studentName} ha solicitado una clase para el ${date} de ${startTime} a ${endTime}`,
+          link: '/teacher/dashboard'
+        }]);
+    }
 
     return {
       id: data.id,
