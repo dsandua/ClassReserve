@@ -47,6 +47,9 @@ const TimeSlots = ({ date, timeSlots = [], selectedSlot, onSelectSlot }: TimeSlo
     slotDateTime.setHours(hours, minutes);
     return isBefore(slotDateTime, now);
   };
+
+  // Filter out unavailable slots
+  const availableSlots = timeSlots.filter(slot => slot.isAvailable);
   
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
@@ -57,36 +60,29 @@ const TimeSlots = ({ date, timeSlots = [], selectedSlot, onSelectSlot }: TimeSlo
       </div>
       
       <div className="p-4">
-        {!Array.isArray(timeSlots) || timeSlots.length === 0 ? (
+        {!Array.isArray(availableSlots) || availableSlots.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-gray-500">No hay horarios disponibles para este día.</p>
             <p className="text-gray-500 text-sm mt-2">Por favor, selecciona otro día del calendario.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {timeSlots.map((slot) => {
+            {availableSlots.map((slot) => {
               const isPast = isSlotPast(slot);
-              const isBooked = !slot.isAvailable;
-              const isDisabled = isPast || isBooked;
               const selected = isSlotSelected(slot);
 
               return (
                 <button
                   key={slot.id}
                   onClick={() => handleSelectSlot(slot)}
-                  disabled={isDisabled}
+                  disabled={isPast}
                   className={`
                     relative p-3 text-sm font-medium rounded-md border transition-colors
                     ${selected ? 'bg-primary-50 border-primary-500 text-primary-700' : ''}
-                    ${isDisabled ? 'bg-gray-50 text-gray-400 cursor-not-allowed border-gray-200' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}
+                    ${isPast ? 'bg-gray-50 text-gray-400 cursor-not-allowed border-gray-200' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}
                   `}
                 >
                   <span className="block">{slot.startTime} - {slot.endTime}</span>
-                  {isBooked && (
-                    <span className="text-xs text-error-500 block mt-1">
-                      No disponible
-                    </span>
-                  )}
                   {isPast && (
                     <span className="text-xs text-gray-500 block mt-1">
                       Hora pasada
