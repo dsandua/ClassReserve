@@ -27,6 +27,8 @@ type NotificationsContextType = {
   markAllAsRead: () => Promise<void>;
   deleteNotification: (notificationId: string) => Promise<void>;
   deleteAllNotifications: () => Promise<void>;
+  // Nueva función para crear notificaciones
+  createNotification: (type: NotificationType, title: string, message: string, link?: string) => Promise<void>;
 };
 
 const NotificationsContext = createContext<NotificationsContextType | undefined>(undefined);
@@ -121,6 +123,64 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     };
   }, [user]);
 
+  // NUEVA FUNCIÓN: Crear notificación
+  const createNotification = async (
+    type: NotificationType, 
+    title: string, 
+    message: string, 
+    link?: string
+  ) => {
+    try {
+      // Verificar que el usuario esté autenticado
+      if (!user) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      console.log('Creando notificación para user_id:', user.id); // Debug
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert([
+          {
+            user_id: user.id, // Esto debe coincidir con auth.uid()
+            type,
+            title,
+            message,
+            link: link || null,
+            read: false,
+            created_at: new Date().toISOString()
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error al crear notificación:', error);
+        throw error;
+      }
+
+      console.log('Notificación creada exitosamente:', data); // Debug
+
+      // Actualizar el estado local inmediatamente
+      const newNotification = {
+        id: data.id,
+        type: data.type as NotificationType,
+        title: data.title,
+        message: data.message,
+        time: getRelativeTime(new Date(data.created_at)),
+        read: data.read,
+        link: data.link
+      };
+
+      setNotifications(prev => [newNotification, ...prev]);
+      
+    } catch (error) {
+      console.error('Error en createNotification:', error);
+      toast.error('Error al crear la notificación');
+      throw error; // Re-lanzar para que el componente que llama pueda manejarlo
+    }
+  };
+
   const markAsRead = async (notificationId: string) => {
     try {
       const { error } = await supabase
@@ -208,6 +268,7 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
       markAllAsRead,
       deleteNotification,
       deleteAllNotifications,
+      createNotification, // Nueva función disponible
     }}>
       {children}
     </NotificationsContext.Provider>
