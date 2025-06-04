@@ -23,6 +23,8 @@ const StudentsPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
+  const [studentBookings, setStudentBookings] = useState<Booking[]>([]);
+  const [bookingCounts, setBookingCounts] = useState<Record<string, number>>({});
   const [newStudent, setNewStudent] = useState({
     name: '',
     email: '',
@@ -52,10 +54,18 @@ const StudentsPage = () => {
 
       setStudents(data);
       setFilteredStudents(data);
+
+      // Fetch booking counts for all students
+      const counts: Record<string, number> = {};
+      for (const student of data) {
+        const bookings = await getStudentBookings(student.id);
+        counts[student.id] = bookings.length;
+      }
+      setBookingCounts(counts);
     };
 
     fetchStudents();
-  }, []);
+  }, [getStudentBookings]);
   
   useEffect(() => {
     if (searchQuery) {
@@ -73,8 +83,7 @@ const StudentsPage = () => {
   }, [students, searchQuery]);
   
   const getBookingCount = (studentId: string) => {
-    const bookings = getStudentBookings(studentId);
-    return bookings.length;
+    return bookingCounts[studentId] || 0;
   };
   
 const handleCreateStudent = async (e: React.FormEvent) => {
@@ -91,8 +100,8 @@ const handleCreateStudent = async (e: React.FormEvent) => {
       .insert([{
         name: newStudent.name,
         email: newStudent.email,
-        phone: newStudent.phone,   // <-- Añadido
-        notes: newStudent.notes,   // <-- Añadido
+        phone: newStudent.phone,
+        notes: newStudent.notes,
         role: 'student'
       }])
       .select()
@@ -126,8 +135,8 @@ const handleEditStudent = async (e: React.FormEvent) => {
       .update({
         name: editStudent.name,
         email: editStudent.email,
-        phone: editStudent.phone,   // <-- Añadido
-        notes: editStudent.notes    // <-- Añadido
+        phone: editStudent.phone,
+        notes: editStudent.notes
       })
       .eq('id', selectedStudent.id)
       .select();
@@ -182,8 +191,8 @@ const openEditModal = (student: User) => {
   setEditStudent({
     name: student.name,
     email: student.email,
-    phone: student.phone || '',     // <-- Corregido
-    notes: student.notes || ''      // <-- Corregido
+    phone: student.phone || '',
+    notes: student.notes || ''
   });
   setShowEditModal(true);
 };
@@ -193,8 +202,10 @@ const openEditModal = (student: User) => {
     setShowDeleteModal(true);
   };
   
-  const openHistoryModal = (student: User) => {
+  const openHistoryModal = async (student: User) => {
     setSelectedStudent(student);
+    const bookings = await getStudentBookings(student.id);
+    setStudentBookings(bookings);
     setShowHistoryModal(true);
   };
 
@@ -616,7 +627,7 @@ const openEditModal = (student: User) => {
                 </div>
                 
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-gray-900">{getBookingCount(selectedStudent.id)}</div>
+                  <div className="text-2xl font-bold text-gray-900">{studentBookings.length}</div>
                   <div className="text-sm text-gray-500">clases totales</div>
                 </div>
               </div>
@@ -645,7 +656,7 @@ const openEditModal = (student: User) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
-                      {getStudentBookings(selectedStudent.id).map((booking) => (
+                      {studentBookings.map((booking) => (
                         <tr key={booking.id}>
                           <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900">
                             {format(parseISO(booking.date), "d 'de' MMMM, yyyy", { locale: es })}
