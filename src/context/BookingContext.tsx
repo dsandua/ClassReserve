@@ -277,30 +277,46 @@ const cancelBooking = async (bookingId: string): Promise<boolean> => {
 
       if (updateError) throw updateError;
 
-      // Create notification for the other party (teacher or student)
-      const isTeacher = bookingData.student_id !== user?.id;
-      const notificationUserId = isTeacher ? bookingData.student_id : import.meta.env.VITE_TEACHER_ID;
+      // Determinar quién está cancelando y a quién notificar
+      const isStudentCancelling = user?.id === bookingData.student_id;
       
-      await supabase
-        .from('notifications')
-        .insert([{
-          user_id: notificationUserId,
-          type: 'cancellation',
-          title: 'Clase cancelada',
-          message: `${isTeacher ? 'El profesor ha' : bookingData.profiles.name + ' ha'} cancelado la clase del ${bookingData.date} de ${bookingData.start_time} a ${bookingData.end_time}`,
-          link: isTeacher ? '/student/dashboard' : '/teacher/dashboard'
-        }]);
+      if (isStudentCancelling) {
+        // El estudiante está cancelando, notificar al profesor
+        const teacherId = import.meta.env.VITE_TEACHER_ID;
+        if (teacherId) {
+          await supabase
+            .from('notifications')
+            .insert([{
+              user_id: teacherId,
+              type: 'cancellation',
+              title: 'Clase cancelada por el alumno',
+              message: `${bookingData.profiles.name} ha cancelado la clase del ${bookingData.date} de ${bookingData.start_time} a ${bookingData.end_time}`,
+              link: '/teacher/dashboard'
+            }]);
+        }
+      } else {
+        // El profesor está cancelando, notificar al estudiante
+        await supabase
+          .from('notifications')
+          .insert([{
+            user_id: bookingData.student_id,
+            type: 'cancellation',
+            title: 'Clase cancelada por el profesor',
+            message: `Tu clase para el ${bookingData.date} de ${bookingData.start_time} a ${bookingData.end_time} ha sido cancelada`,
+            link: '/student/dashboard'
+          }]);
+      }
 
-      // Solo enviamos email si tenemos los datos necesarios
-      if (bookingData.profiles?.email) {
+      // Enviamos email si tenemos los datos necesarios
+      if (bookingData.profiles?.email && !isStudentCancelling) {
         await sendEmail(
           bookingData.profiles.email,
           'Clase cancelada',
           `
-            Lo sentimos, ${isTeacher ? 'tu' : 'la'} clase para el día ${bookingData.date} 
+            Lo sentimos, tu clase para el día ${bookingData.date} 
             de ${bookingData.start_time} a ${bookingData.end_time} ha sido cancelada.
             
-            ${isTeacher ? 'Por favor, solicita una nueva clase en otro horario disponible.' : 'El alumno ha cancelado la clase.'}
+            Por favor, solicita una nueva clase en otro horario disponible.
           `
         );
       }
@@ -308,6 +324,7 @@ const cancelBooking = async (bookingId: string): Promise<boolean> => {
       return true;
     } catch (error) {
       console.error('Error cancelling booking:', error);
+      toast.error('Error al cancelar la reserva');
       return false;
     }
   };
