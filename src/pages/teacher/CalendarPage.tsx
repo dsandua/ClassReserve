@@ -92,12 +92,20 @@ const CalendarPage = () => {
         isSameDay(parseISO(booking.date), date)
       );
 
+      const hasPendingBookings = bookingsForDay.some(booking => 
+        booking.status === 'pending'
+      );
+
       const hasConfirmedBookings = bookingsForDay.some(booking => 
         booking.status === 'confirmed'
       );
 
-      const hasPendingBookings = bookingsForDay.some(booking => 
-        booking.status === 'pending'
+      const hasCompletedBookings = bookingsForDay.some(booking => 
+        booking.status === 'completed'
+      );
+
+      const hasCancelledBookings = bookingsForDay.some(booking => 
+        booking.status === 'cancelled'
       );
       
       const isBlocked = isTimeBlocked(date);
@@ -110,8 +118,10 @@ const CalendarPage = () => {
       return {
         day,
         date,
-        hasConfirmedBookings,
         hasPendingBookings,
+        hasConfirmedBookings,
+        hasCompletedBookings,
+        hasCancelledBookings,
         isSelected: isSameDay(date, selectedDate),
         isToday: isSameDay(date, new Date()),
         isBlocked,
@@ -127,7 +137,7 @@ const CalendarPage = () => {
       const success = await confirmBooking(bookingId);
       
       if (success) {
-        const bookings = getBookingsByDate(selectedDate) ?? [];
+        const bookings = await getBookingsByDate(selectedDate);
         setBookingsForDate(bookings);
         
         toast.success('Reserva confirmada con éxito');
@@ -143,7 +153,7 @@ const CalendarPage = () => {
       const success = await cancelBooking(bookingId);
       
       if (success) {
-        const bookings = getBookingsByDate(selectedDate) ?? [];
+        const bookings = await getBookingsByDate(selectedDate);
         setBookingsForDate(bookings);
         
         toast.success('Reserva cancelada con éxito');
@@ -296,10 +306,16 @@ const CalendarPage = () => {
                       
                       <div className="absolute bottom-1 flex space-x-1">
                         {dayObj.hasPendingBookings && (
-                          <div className="w-1.5 h-1.5 rounded-full bg-error-500"></div>
+                          <div className="w-1.5 h-1.5 rounded-full bg-warning-500"></div>
                         )}
                         {dayObj.hasConfirmedBookings && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-success-500"></div>
+                        )}
+                        {dayObj.hasCompletedBookings && (
                           <div className="w-1.5 h-1.5 rounded-full bg-primary-500"></div>
+                        )}
+                        {dayObj.hasCancelledBookings && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-error-500"></div>
                         )}
                       </div>
                     </div>
@@ -313,12 +329,20 @@ const CalendarPage = () => {
             <h3 className="font-medium text-gray-900 mb-2">Leyenda</h3>
             <div className="grid grid-cols-2 gap-2">
               <div className="flex items-center">
+                <div className="w-4 h-4 rounded-full bg-warning-500 mr-2"></div>
+                <span className="text-sm text-gray-700">Pendientes</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-4 h-4 rounded-full bg-success-500 mr-2"></div>
+                <span className="text-sm text-gray-700">Confirmadas</span>
+              </div>
+              <div className="flex items-center">
                 <div className="w-4 h-4 rounded-full bg-primary-500 mr-2"></div>
-                <span className="text-sm text-gray-700">Con reservas</span>
+                <span className="text-sm text-gray-700">Completadas</span>
               </div>
               <div className="flex items-center">
                 <div className="w-4 h-4 rounded-full bg-error-500 mr-2"></div>
-                <span className="text-sm text-gray-700">Pendientes</span>
+                <span className="text-sm text-gray-700">Canceladas</span>
               </div>
               <div className="flex items-center">
                 <div className="w-4 h-4 rounded bg-error-50 border border-error-200 mr-2"></div>
@@ -346,23 +370,25 @@ const CalendarPage = () => {
             </div>
             
             <div className="p-4">
-              {(bookingsForDate ?? []).length === 0 ? (
+              {isLoading ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">Cargando reservas...</p>
+                </div>
+              ) : bookingsForDate.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-gray-500">No hay reservas para este día.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {Array.isArray(bookingsForDate) ? (
-                    bookingsForDate.map((booking) => (
-                      <BookingCard 
-                        key={booking.id} 
-                        booking={booking} 
-                        isTeacher={true}
-                        onConfirm={booking.status === 'pending' ? handleConfirmBooking : undefined}
-                        onCancel={booking.status === 'pending' ? handleCancelBooking : undefined}
-                      />
-                    ))
-                  ) : null}
+                  {bookingsForDate.map((booking) => (
+                    <BookingCard 
+                      key={booking.id} 
+                      booking={booking} 
+                      isTeacher={true}
+                      onConfirm={booking.status === 'pending' ? handleConfirmBooking : undefined}
+                      onCancel={booking.status === 'pending' ? handleCancelBooking : undefined}
+                    />
+                  ))}
                 </div>
               )}
             </div>
