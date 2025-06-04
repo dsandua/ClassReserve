@@ -7,7 +7,7 @@ import { Booking } from '../../context/BookingContext';
 import BookingCard from '../../components/booking/BookingCard';
 import toast from 'react-hot-toast';
 import { createClient } from '@supabase/supabase-js';
-import { parseISO, isAfter, startOfDay } from 'date-fns';
+import { parseISO, isAfter, startOfDay, addDays } from 'date-fns';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -21,41 +21,53 @@ const TeacherDashboardPage = () => {
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [studentCount, setStudentCount] = useState(0);
-  
-  // Fetch bookings and student count when component mounts
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Obtener el conteo de estudiantes
+      const { count } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'student');
+      
+      setStudentCount(count || 0);
+
+      // Obtener todas las reservas
+      const allBookings = await getTeacherBookings();
+      const pending = await getPendingBookings();
+      
+      // Filtrar las próximas clases confirmadas
+      const now = startOfDay(new Date());
+      const nextMonth = addDays(now, 30);
+      
+      const upcoming = allBookings.filter(booking => {
+        const bookingDate = parseISO(booking.date);
+        return isAfter(bookingDate, now) && 
+               booking.status === 'confirmed' &&
+               bookingDate <= nextMonth;
+      }).sort((a, b) => {
+        const dateA = parseISO(a.date);
+        const dateB = parseISO(b.date);
+        return dateA.getTime() - dateB.getTime();
+      }).slice(0, 3); // Obtener solo las próximas 3 clases
+      
+      setPendingBookings(pending);
+      setUpcomingBookings(upcoming);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Error al cargar los datos');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Get student count (excluding teacher)
-        const { count } = await supabase
-          .from('profiles')
-          .select('*', { count: 'exact', head: true })
-          .eq('role', 'student');
-        
-        setStudentCount(count || 0);
-
-        const allBookings = await getTeacherBookings();
-        const pending = await getPendingBookings();
-        
-        // Filter upcoming confirmed bookings
-        const now = startOfDay(new Date());
-        const upcoming = allBookings.filter(booking => {
-          const bookingDate = parseISO(booking.date);
-          return isAfter(bookingDate, now) && booking.status === 'confirmed';
-        }).slice(0, 3); // Get only the next 3
-        
-        setPendingBookings(pending);
-        setUpcomingBookings(upcoming);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        toast.error('Error al cargar los datos');
-      }
-    };
-
     fetchData();
-  }, [getTeacherBookings, getPendingBookings]);
-  
-  // Handle confirm booking
+  }, []);
+
   const handleConfirmBooking = async (bookingId: string) => {
     if (isProcessing) return;
     
@@ -65,16 +77,8 @@ const TeacherDashboardPage = () => {
       const success = await confirmBooking(bookingId);
       
       if (success) {
-        // Update the pending bookings list
-        setPendingBookings(prev => prev.filter(booking => booking.id !== bookingId));
-        
-        // Update the upcoming bookings
-        const allBookings = await getTeacherBookings();
-        const confirmed = allBookings.find(b => b.id === bookingId);
-        if (confirmed) {
-          setUpcomingBookings(prev => [confirmed, ...prev].slice(0, 3));
-        }
-        
+        // Actualizar los datos después de confirmar
+        await fetchData();
         toast.success('Reserva confirmada con éxito');
       }
     } catch (error) {
@@ -85,7 +89,6 @@ const TeacherDashboardPage = () => {
     }
   };
   
-  // Handle cancel booking
   const handleCancelBooking = async (bookingId: string) => {
     if (isProcessing) return;
     
@@ -95,9 +98,8 @@ const TeacherDashboardPage = () => {
       const success = await cancelBooking(bookingId);
       
       if (success) {
-        // Update the pending bookings list
-        setPendingBookings(prev => prev.filter(booking => booking.id !== bookingId));
-        
+        // Actualizar los datos después de cancelar
+        await fetchData();
         toast.success('Reserva cancelada con éxito');
       }
     } catch (error) {
@@ -108,6 +110,14 @@ const TeacherDashboardPage = () => {
     }
   };
   
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-gray-500">Cargando datos...</p>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="mb-8">
@@ -295,7 +305,7 @@ const TeacherDashboardPage = () => {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </div>
