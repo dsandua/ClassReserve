@@ -49,7 +49,7 @@ export type BlockedTime = {
 
 type BookingContextType = {
   bookings: Booking[];
-  getAvailableTimeSlots: (date: Date) => Promise<TimeSlot[]>;
+  getAvailableTimeSlots: (date: Date) => TimeSlot[];
   createBooking: (studentId: string, studentName: string, date: string, startTime: string, endTime: string) => Promise<Booking>;
   confirmBooking: (bookingId: string) => Promise<boolean>;
   cancelBooking: (bookingId: string) => Promise<boolean>;
@@ -96,52 +96,43 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
 
   const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
-    try {
-      const dayOfWeek = date.getDay();
-      
-      // Get availability settings for the day
-      const { data: availabilityData } = await supabase
-        .from('availability')
-        .select('*')
-        .eq('day_of_week', dayOfWeek)
-        .single();
-      
-      if (!availabilityData?.is_available || !availabilityData?.slots?.length) {
-        return [];
-      }
-      
-      // Check if date is blocked
-      const isDateBlocked = isTimeBlocked(date);
-      if (isDateBlocked) {
-        return [];
-      }
-      
-      // Get existing bookings for the date
-      const { data: existingBookings } = await supabase
-        .from('bookings')
-        .select('*')
-        .eq('date', format(date, 'yyyy-MM-dd'))
-        .neq('status', 'cancelled');
-
-      // Convert availability slots to time slots
-      return availabilityData.slots.map(slot => {
-        const isBooked = existingBookings?.some(booking => 
-          booking.start_time === slot.startTime && 
-          booking.end_time === slot.endTime
-        );
-        
-        return {
-          id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
-          date: format(date, 'yyyy-MM-dd'),
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          isAvailable: !isBooked
-        };
-      });
-    } catch (error) {
-      console.error('Error getting available time slots:', error);
+    const dayOfWeek = date.getDay();
+    
+    const { data: availabilityData } = await supabase
+      .from('availability')
+      .select('*')
+      .eq('day_of_week', dayOfWeek);
+    
+    const dayAvailability = availabilityData?.[0];
+    
+    if (!dayAvailability || !dayAvailability.is_available) {
       return [];
     }
+    
+    const isDateBlocked = isTimeBlocked(date);
+    if (isDateBlocked) {
+      return [];
+    }
+    
+    const { data: bookings } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('date', format(date, 'yyyy-MM-dd'))
+      .neq('status', 'cancelled');
+    
+    return dayAvailability.slots.map(slot => {
+      const isBooked = bookings?.some(booking => 
+        booking.start_time === slot.startTime && booking.end_time === slot.endTime
+      );
+      
+      return {
+        id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
+        date: format(date, 'yyyy-MM-dd'),
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        isAvailable: !isBooked,
+      };
+    });
   };
 
   const createBooking = async (
@@ -266,7 +257,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const cancelBooking = async (bookingId: string): Promise<boolean> => {
+const cancelBooking = async (bookingId: string): Promise<boolean> => {
     try {
       // Primero obtenemos la información de la reserva antes de cancelarla
       const { data: bookingData, error: fetchError } = await supabase
