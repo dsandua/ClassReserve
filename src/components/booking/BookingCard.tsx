@@ -74,10 +74,6 @@ const BookingCard = ({
   };
 
 const handleCancelBooking = async () => {
-    if (!confirm('¿Estás seguro de que quieres cancelar esta clase?')) {
-      return;
-    }
-
     try {
       const success = await cancelBooking(booking.id);
       if (success) {
