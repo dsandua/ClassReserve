@@ -254,7 +254,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const cancelBooking = async (bookingId: string): Promise<boolean> => {
+const cancelBooking = async (bookingId: string): Promise<boolean> => {
     try {
       // Primero obtenemos la información de la reserva antes de cancelarla
       const { data: bookingData, error: fetchError } = await supabase
@@ -290,27 +290,6 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
           message: `${isTeacher ? 'El profesor ha' : bookingData.profiles.name + ' ha'} cancelado la clase del ${bookingData.date} de ${bookingData.start_time} a ${bookingData.end_time}`,
           link: isTeacher ? '/student/dashboard' : '/teacher/dashboard'
         }]);
-
-      // Solo enviamos email si tenemos los datos necesarios
-      if (bookingData.profiles?.email) {
-        await sendEmail(
-          bookingData.profiles.email,
-          'Clase cancelada',
-          `
-            Lo sentimos, ${isTeacher ? 'tu' : 'la'} clase para el día ${bookingData.date} 
-            de ${bookingData.start_time} a ${bookingData.end_time} ha sido cancelada.
-            
-            ${isTeacher ? 'Por favor, solicita una nueva clase en otro horario disponible.' : 'El alumno ha cancelado la clase.'}
-          `
-        );
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error cancelling booking:', error);
-      return false;
-    }
-  };
 
       // Solo enviamos email si tenemos los datos necesarios
       if (bookingData.profiles?.email) {
