@@ -33,7 +33,7 @@ const TeacherSidebar = () => {
     >
       <div className="h-16 flex items-center px-4 border-b border-gray-200">
         {!collapsed && (
-          <Link to="/teacher/dashboard" className="flex items-center">
+          <Link to="/teacher/dashboard\" className="flex items-center">
             <Calendar className="h-8 w-8 text-primary-600" />
             <span className="ml-2 text-xl font-bold text-gray-900">ClassReserve</span>
           </Link>
