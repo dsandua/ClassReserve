@@ -26,10 +26,7 @@ const TimeSlots = ({ date, timeSlots = [], selectedSlot, onSelectSlot }: TimeSlo
       return;
     }
 
-    // Only allow selection if slot is available
-    if (slot.isAvailable) {
-      onSelectSlot(slot);
-    }
+    onSelectSlot(slot);
   };
   
   // Check if a slot is selected
@@ -48,7 +45,7 @@ const TimeSlots = ({ date, timeSlots = [], selectedSlot, onSelectSlot }: TimeSlo
     return isBefore(slotDateTime, now);
   };
 
-  // Filter out unavailable slots
+  // Filter out unavailable and booked slots
   const availableSlots = timeSlots.filter(slot => slot.isAvailable);
   
   return (
