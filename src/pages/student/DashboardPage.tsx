@@ -54,16 +54,19 @@ const DashboardPage = () => {
     fetchBookings();
   }, [user, getStudentBookings]);
 
-  // Función para manejar la cancelación
+// Función para manejar la cancelación
   const handleBookingCancelled = (bookingId: string) => {
     // Actualizar las listas de reservas
     setPendingBookings(prev => prev.filter(booking => booking.id !== bookingId));
     setUpcomingBookings(prev => prev.filter(booking => booking.id !== bookingId));
     setBookings(prev => prev.map(booking => 
       booking.id === bookingId 
-        ? { ...booking, status: 'cancelled' } 
+        ? { ...booking, status: 'cancelled' as const } 
         : booking
     ));
+    
+    // Recargar las reservas para asegurarnos de que todo esté sincronizado
+    fetchBookings();
   };
   
   return (
