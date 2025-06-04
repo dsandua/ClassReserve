@@ -186,6 +186,7 @@ const NotificationsPage = () => {
                       <a
                         href={notification.link}
                         className="mt-2 text-sm text-primary-600 hover:text-primary-700 font-medium inline-flex items-center"
+                        onClick={() => markAsRead(notification.id)}
                       >
                         Ver detalles
                       </a>
