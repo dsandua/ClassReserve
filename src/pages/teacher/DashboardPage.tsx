@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Calendar, Clock, Users, Check, X } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useBooking } from '../../hooks/useBooking';
+import { useNotifications } from '../../context/NotificationsContext';
 import { Booking } from '../../context/BookingContext';
 import BookingCard from '../../components/booking/BookingCard';
 import toast from 'react-hot-toast';
@@ -17,6 +18,7 @@ const supabase = createClient(
 const TeacherDashboardPage = () => {
   const { user } = useAuth();
   const { getTeacherBookings, getPendingBookings, confirmBooking, cancelBooking } = useBooking();
+  const { markAsRead } = useNotifications();
   const [pendingBookings, setPendingBookings] = useState<Booking[]>([]);
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -79,6 +81,18 @@ const TeacherDashboardPage = () => {
       if (success) {
         // Actualizar los datos después de confirmar
         await fetchData();
+
+        // Marcar la notificación relacionada como leída
+        const { data: notifications } = await supabase
+          .from('notifications')
+          .select('id')
+          .eq('type', 'booking')
+          .like('message', `%${bookingId}%`);
+
+        if (notifications && notifications.length > 0) {
+          await markAsRead(notifications[0].id);
+        }
+
         toast.success('Reserva confirmada con éxito');
       }
     } catch (error) {
@@ -100,6 +114,18 @@ const TeacherDashboardPage = () => {
       if (success) {
         // Actualizar los datos después de cancelar
         await fetchData();
+
+        // Marcar la notificación relacionada como leída
+        const { data: notifications } = await supabase
+          .from('notifications')
+          .select('id')
+          .eq('type', 'booking')
+          .like('message', `%${bookingId}%`);
+
+        if (notifications && notifications.length > 0) {
+          await markAsRead(notifications[0].id);
+        }
+
         toast.success('Reserva cancelada con éxito');
       }
     } catch (error) {
