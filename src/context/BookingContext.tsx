@@ -96,43 +96,53 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
 
   const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
-    const dayOfWeek = date.getDay();
-    
-    const { data: availabilityData } = await supabase
-      .from('availability')
-      .select('*')
-      .eq('day_of_week', dayOfWeek);
-    
-    const dayAvailability = availabilityData?.[0];
-    
-    if (!dayAvailability || !dayAvailability.is_available) {
-      return [];
-    }
-    
-    const isDateBlocked = isTimeBlocked(date);
-    if (isDateBlocked) {
-      return [];
-    }
-    
-    const { data: bookings } = await supabase
-      .from('bookings')
-      .select('*')
-      .eq('date', format(date, 'yyyy-MM-dd'))
-      .neq('status', 'cancelled');
-    
-    return dayAvailability.slots.map(slot => {
-      const isBooked = bookings?.some(booking => 
-        booking.start_time === slot.startTime && booking.end_time === slot.endTime
-      );
+    try {
+      const dayOfWeek = date.getDay();
       
-      return {
-        id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
-        date: format(date, 'yyyy-MM-dd'),
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        isAvailable: !isBooked,
-      };
-    });
+      // Get availability settings for this day
+      const { data: availabilityData } = await supabase
+        .from('availability')
+        .select('*')
+        .eq('day_of_week', dayOfWeek)
+        .single();
+      
+      if (!availabilityData || !availabilityData.is_available) {
+        return [];
+      }
+      
+      // Check if date is blocked
+      const isDateBlocked = isTimeBlocked(date);
+      if (isDateBlocked) {
+        return [];
+      }
+      
+      // Get existing bookings for this date
+      const { data: bookings } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('date', format(date, 'yyyy-MM-dd'))
+        .neq('status', 'cancelled');
+      
+      // Convert availability slots to time slots
+      return availabilityData.slots.map(slot => {
+        // Check if this slot is already booked
+        const isBooked = bookings?.some(booking => 
+          booking.start_time === slot.startTime && 
+          booking.end_time === slot.endTime
+        );
+        
+        return {
+          id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
+          date: format(date, 'yyyy-MM-dd'),
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          isAvailable: !isBooked
+        };
+      });
+    } catch (error) {
+      console.error('Error getting available time slots:', error);
+      return [];
+    }
   };
 
   const createBooking = async (
