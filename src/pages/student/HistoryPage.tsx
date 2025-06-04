@@ -12,14 +12,27 @@ const HistoryPage = () => {
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [isLoading, setIsLoading] = useState(true);
   
   const { getStudentBookings } = useBooking();
   const { user } = useAuth();
   
   useEffect(() => {
-    const allBookings = getStudentBookings(user.id);
-    setBookings(allBookings);
-    setFilteredBookings(allBookings);
+    const fetchBookings = async () => {
+      try {
+        setIsLoading(true);
+        const allBookings = await getStudentBookings(user.id);
+        setBookings(allBookings || []);
+        setFilteredBookings(allBookings || []);
+      } catch (error) {
+        console.error('Error fetching bookings:', error);
+        toast.error('Error al cargar el historial de clases');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchBookings();
   }, [getStudentBookings, user.id]);
   
   useEffect(() => {
@@ -159,7 +172,11 @@ const HistoryPage = () => {
       </div>
       
       <div className="bg-white shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
-        {filteredBookings.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-10">
+            <p className="text-gray-500">Cargando historial...</p>
+          </div>
+        ) : filteredBookings.length === 0 ? (
           <div className="text-center py-10">
             <p className="text-gray-500">No se encontraron reservas.</p>
           </div>
