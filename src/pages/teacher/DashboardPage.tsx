@@ -7,6 +7,7 @@ import { Booking } from '../../context/BookingContext';
 import BookingCard from '../../components/booking/BookingCard';
 import toast from 'react-hot-toast';
 import { createClient } from '@supabase/supabase-js';
+import { parseISO, isAfter, startOfDay } from 'date-fns';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -37,10 +38,10 @@ const TeacherDashboardPage = () => {
         const pending = await getPendingBookings();
         
         // Filter upcoming confirmed bookings
+        const now = startOfDay(new Date());
         const upcoming = allBookings.filter(booking => {
-          const bookingDate = new Date(booking.date);
-          const now = new Date();
-          return bookingDate >= now && booking.status === 'confirmed';
+          const bookingDate = parseISO(booking.date);
+          return isAfter(bookingDate, now) && booking.status === 'confirmed';
         }).slice(0, 3); // Get only the next 3
         
         setPendingBookings(pending);
@@ -294,7 +295,7 @@ const TeacherDashboardPage = () => {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </div>
