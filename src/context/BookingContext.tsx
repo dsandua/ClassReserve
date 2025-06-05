@@ -98,51 +98,68 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
  // En src/context/BookingContext.tsx
 // Reemplaza la función getAvailableTimeSlots con esta versión corregida:
 
+// En src/context/BookingContext.tsx
+// Reemplaza la función getAvailableTimeSlots con esta versión corregida:
+
 const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
   const dayOfWeek = date.getDay();
   
   // Obtener la disponibilidad del día
-  const { data: availabilityData } = await supabase
+  const { data: availabilityData, error: availabilityError } = await supabase
     .from('availability')
     .select('*')
     .eq('day_of_week', dayOfWeek)
     .single();
   
-  if (!availabilityData || !availabilityData.is_available) {
+  if (availabilityError || !availabilityData || !availabilityData.is_available) {
+    console.log('No hay disponibilidad para este día:', { dayOfWeek, availabilityError });
     return [];
   }
   
   // Verificar si el día está bloqueado
   const isDateBlocked = isTimeBlocked(date);
   if (isDateBlocked) {
+    console.log('Día bloqueado:', date);
     return [];
   }
   
-  // Obtener todas las reservas para esta fecha (incluyendo pending y confirmed)
-  const { data: bookings } = await supabase
+  // Obtener todas las reservas para esta fecha que ocupan el slot
+  const { data: bookings, error: bookingsError } = await supabase
     .from('bookings')
-    .select('*')
+    .select('start_time, end_time, status')
     .eq('date', format(date, 'yyyy-MM-dd'))
-    .in('status', ['pending', 'confirmed']); // ✅ Excluir solo cancelled y completed
+    .in('status', ['pending', 'confirmed']); // Solo reservas activas
   
-  // Filtrar slots disponibles
+  if (bookingsError) {
+    console.error('Error al obtener reservas:', bookingsError);
+    return [];
+  }
+  
+  console.log('Reservas existentes para', format(date, 'yyyy-MM-dd'), ':', bookings);
+  console.log('Slots de disponibilidad:', availabilityData.slots);
+  
+  // Filtrar solo los slots que NO están reservados
   const availableSlots = availabilityData.slots
-    .map(slot => {
+    .filter(slot => {
       // Verificar si este slot ya está reservado
       const isBooked = bookings?.some(booking => 
         booking.start_time === slot.startTime && 
         booking.end_time === slot.endTime
       );
       
-      return {
-        id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
-        date: format(date, 'yyyy-MM-dd'),
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        isAvailable: !isBooked, // ✅ Correctamente marcado como no disponible si está reservado
-      };
+      console.log(`Slot ${slot.startTime}-${slot.endTime}: ${isBooked ? 'OCUPADO' : 'LIBRE'}`);
+      
+      return !isBooked; // Solo incluir si NO está reservado
     })
-    .filter(slot => slot.isAvailable); // ✅ Solo devolver slots realmente disponibles
+    .map(slot => ({
+      id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
+      date: format(date, 'yyyy-MM-dd'),
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      isAvailable: true, // Todos los que llegan aquí están disponibles
+    }));
+  
+  console.log('Slots disponibles finales:', availableSlots);
   
   return availableSlots;
 };
