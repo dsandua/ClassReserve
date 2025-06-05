@@ -7,9 +7,16 @@ type TimeSlotsProps = {
   timeSlots: TimeSlot[];
   selectedSlot: TimeSlot | null;
   onSelectSlot: (slot: TimeSlot) => void;
+  isLoading?: boolean;
 };
 
-const TimeSlots = ({ date, timeSlots = [], selectedSlot, onSelectSlot }: TimeSlotsProps) => {
+const TimeSlots = ({ 
+  date, 
+  timeSlots = [], 
+  selectedSlot, 
+  onSelectSlot,
+  isLoading = false 
+}: TimeSlotsProps) => {
   // Format the date for display
   const formattedDate = format(date, "EEEE, d 'de' MMMM", { locale: es });
   
@@ -26,7 +33,9 @@ const TimeSlots = ({ date, timeSlots = [], selectedSlot, onSelectSlot }: TimeSlo
       return;
     }
 
-    onSelectSlot(slot);
+    if (slot.isAvailable) {
+      onSelectSlot(slot);
+    }
   };
   
   // Check if a slot is selected
@@ -44,9 +53,6 @@ const TimeSlots = ({ date, timeSlots = [], selectedSlot, onSelectSlot }: TimeSlo
     slotDateTime.setHours(hours, minutes);
     return isBefore(slotDateTime, now);
   };
-
-  // Filter out unavailable and booked slots
-  const availableSlots = timeSlots.filter(slot => slot.isAvailable);
   
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
@@ -57,32 +63,39 @@ const TimeSlots = ({ date, timeSlots = [], selectedSlot, onSelectSlot }: TimeSlo
       </div>
       
       <div className="p-4">
-        {!Array.isArray(availableSlots) || availableSlots.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">Cargando horarios disponibles...</p>
+          </div>
+        ) : !Array.isArray(timeSlots) || timeSlots.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-gray-500">No hay horarios disponibles para este día.</p>
             <p className="text-gray-500 text-sm mt-2">Por favor, selecciona otro día del calendario.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {availableSlots.map((slot) => {
+            {timeSlots.map((slot) => {
               const isPast = isSlotPast(slot);
-              const selected = isSlotSelected(slot);
-
               return (
                 <button
                   key={slot.id}
                   onClick={() => handleSelectSlot(slot)}
-                  disabled={isPast}
+                  disabled={!slot.isAvailable || isPast}
                   className={`
-                    relative p-3 text-sm font-medium rounded-md border transition-colors
-                    ${selected ? 'bg-primary-50 border-primary-500 text-primary-700' : ''}
-                    ${isPast ? 'bg-gray-50 text-gray-400 cursor-not-allowed border-gray-200' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}
+                    time-slot 
+                    ${isSlotSelected(slot) ? 'time-slot-selected' : ''} 
+                    ${!slot.isAvailable || isPast ? 'time-slot-unavailable' : ''}
                   `}
                 >
-                  <span className="block">{slot.startTime} - {slot.endTime}</span>
+                  {slot.startTime} - {slot.endTime}
                   {isPast && (
-                    <span className="text-xs text-gray-500 block mt-1">
+                    <span className="text-xs text-gray-500 block">
                       Hora pasada
+                    </span>
+                  )}
+                  {!slot.isAvailable && !isPast && (
+                    <span className="text-xs text-gray-500 block">
+                      Ocupado
                     </span>
                   )}
                 </button>
