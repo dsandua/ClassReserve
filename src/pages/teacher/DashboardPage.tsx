@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, Clock, Users, Check, X } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { useBooking } from '../../context/BookingContext';
+import { useBooking } from '../hooks/useBooking';
 import { useNotifications } from '../../context/NotificationsContext';
 import { Booking } from '../../context/BookingContext';
 import BookingCard from '../../components/booking/BookingCard';
