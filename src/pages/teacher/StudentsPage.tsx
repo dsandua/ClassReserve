@@ -667,7 +667,7 @@ const StudentsPage = () => {
                             {format(parseISO(booking.date), "d 'de' MMMM, yyyy", { locale: es })}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {booking.startTime} - {booking.endTime}
+                            {formatTimeRange(booking.startTime)} - {formatTimeRange(booking.endTime)}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
                             {getStatusBadge(booking.status)}
