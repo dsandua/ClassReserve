@@ -92,77 +92,80 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
   const [blockedTimes, setBlockedTimes] = useState<BlockedTime[]>([]);
   const [availabilitySettings, setAvailabilitySettings] = useState<DayAvailability[]>([]);
 
-  const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
+const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
+    const dayOfWeek = date.getDay();
+    
     try {
-      const dayOfWeek = date.getDay();
-      
-      console.log('Buscando disponibilidad para el día:', dayOfWeek, 'fecha:', format(date, 'yyyy-MM-dd'));
-      
-      // Obtener la disponibilidad para el día de la semana
+      // Obtener disponibilidad del día
       const { data: availabilityData, error: availabilityError } = await supabase
         .from('availability')
         .select('*')
         .eq('day_of_week', dayOfWeek)
-        .eq('is_available', true)
-        .single();
+        .eq('is_available', true);
       
       if (availabilityError) {
-        console.error('Error obteniendo disponibilidad:', availabilityError);
+        console.error('Error fetching availability:', availabilityError);
         return [];
       }
-      
-      if (!availabilityData || !availabilityData.slots || availabilityData.slots.length === 0) {
-        console.log('No hay slots disponibles para este día');
+
+      if (!availabilityData || availabilityData.length === 0) {
         return [];
       }
-      
-      console.log('Slots disponibles del día:', availabilityData.slots);
-      
+
       // Verificar si la fecha está bloqueada
       const isDateBlocked = isTimeBlocked(date);
       if (isDateBlocked) {
-        console.log('Fecha bloqueada');
         return [];
       }
       
-      // Obtener todas las reservas activas para esta fecha
+      // Obtener reservas existentes para este día (excluyendo canceladas)
       const { data: bookings, error: bookingsError } = await supabase
         .from('bookings')
         .select('*')
         .eq('date', format(date, 'yyyy-MM-dd'))
-        .in('status', ['pending', 'confirmed']);
+        .neq('status', 'cancelled');
       
       if (bookingsError) {
-        console.error('Error obteniendo reservas:', bookingsError);
+        console.error('Error fetching bookings:', bookingsError);
         return [];
       }
+
+      // Generar slots disponibles
+      const availableSlots: TimeSlot[] = [];
       
-      console.log('Reservas existentes para esta fecha:', bookings);
-      
-      // Crear los time slots basados en la disponibilidad
-      const timeSlots: TimeSlot[] = availabilityData.slots.map(slot => {
-        // Verificar si este horario específico ya está reservado
-        const isBooked = bookings?.some(booking => 
-          booking.start_time === slot.startTime && 
-          booking.end_time === slot.endTime
-        );
-        
-        console.log(`Slot ${slot.startTime}-${slot.endTime}: ${isBooked ? 'OCUPADO' : 'DISPONIBLE'}`);
-        
-        return {
-          id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
-          date: format(date, 'yyyy-MM-dd'),
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          isAvailable: !isBooked,
-        };
+      // Iterar sobre todos los registros de disponibilidad para este día
+      availabilityData.forEach(availability => {
+        if (availability.slots && Array.isArray(availability.slots)) {
+          availability.slots.forEach(slot => {
+            // Verificar si este slot ya está reservado
+            const isBooked = bookings?.some(booking => {
+              // Normalizar los tiempos para comparación
+              const bookingStart = booking.start_time.substring(0, 5); // "10:00:00" -> "10:00"
+              const bookingEnd = booking.end_time.substring(0, 5);
+              const slotStart = slot.startTime;
+              const slotEnd = slot.endTime;
+              
+              return bookingStart === slotStart && bookingEnd === slotEnd;
+            });
+            
+            // Solo agregar si no está reservado
+            if (!isBooked) {
+              availableSlots.push({
+                id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
+                date: format(date, 'yyyy-MM-dd'),
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                isAvailable: true,
+              });
+            }
+          });
+        }
       });
-      
-      console.log('TimeSlots generados:', timeSlots);
-      return timeSlots;
+
+      return availableSlots;
       
     } catch (error) {
-      console.error('Error en getAvailableTimeSlots:', error);
+      console.error('Error in getAvailableTimeSlots:', error);
       return [];
     }
   };
