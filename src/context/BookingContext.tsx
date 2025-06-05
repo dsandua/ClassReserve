@@ -95,55 +95,74 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
   const [availabilitySettings, setAvailabilitySettings] = useState<DayAvailability[]>([]);
   const { user } = useAuth();
 
-  const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
-    try {
-      const dayOfWeek = date.getDay();
-      
-      // Get availability settings for this day
-      const { data: availabilityData } = await supabase
-        .from('availability')
-        .select('*')
-        .eq('day_of_week', dayOfWeek)
-        .single();
-      
-      if (!availabilityData || !availabilityData.is_available) {
-        return [];
-      }
-      
-      // Check if date is blocked
-      const isDateBlocked = isTimeBlocked(date);
-      if (isDateBlocked) {
-        return [];
-      }
-      
-      // Get existing bookings for this date
-      const { data: bookings } = await supabase
-        .from('bookings')
-        .select('*')
-        .eq('date', format(date, 'yyyy-MM-dd'))
-        .neq('status', 'cancelled');
-      
-      // Convert availability slots to time slots
-      return availabilityData.slots.map(slot => {
-        // Check if this slot is already booked
-        const isBooked = bookings?.some(booking => 
-          booking.start_time === slot.startTime && 
-          booking.end_time === slot.endTime
-        );
-        
-        return {
-          id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
-          date: format(date, 'yyyy-MM-dd'),
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          isAvailable: !isBooked
-        };
-      });
-    } catch (error) {
-      console.error('Error getting available time slots:', error);
-      return [];
-    }
-  };
+// En tu BookingContext.tsx, reemplaza solo la función getAvailableTimeSlots:
+
+const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
+  const dayOfWeek = date.getDay();
+  
+  console.log('Obteniendo slots para día:', dayOfWeek, 'fecha:', format(date, 'yyyy-MM-dd'));
+  
+  // Obtener todos los slots de disponibilidad para este día
+  const { data: availabilityData, error: availabilityError } = await supabase
+    .from('availability')
+    .select('*')
+    .eq('day_of_week', dayOfWeek)
+    .eq('is_available', true)
+    .order('start_time');
+  
+  if (availabilityError) {
+    console.error('Error obteniendo disponibilidad:', availabilityError);
+    return [];
+  }
+  
+  if (!availabilityData || availabilityData.length === 0) {
+    console.log('No hay disponibilidad para este día');
+    return [];
+  }
+  
+  console.log('Slots de disponibilidad encontrados:', availabilityData);
+  
+  // Verificar si la fecha está bloqueada
+  const isDateBlocked = isTimeBlocked(date);
+  if (isDateBlocked) {
+    console.log('Fecha bloqueada');
+    return [];
+  }
+  
+  // Obtener reservas existentes para esta fecha
+  const dateString = format(date, 'yyyy-MM-dd');
+  const { data: bookings, error: bookingsError } = await supabase
+    .from('bookings')
+    .select('start_time, end_time, status')
+    .eq('date', dateString)
+    .in('status', ['pending', 'confirmed']);
+  
+  if (bookingsError) {
+    console.error('Error obteniendo reservas:', bookingsError);
+    return [];
+  }
+  
+  console.log('Reservas existentes para', dateString, ':', bookings);
+  
+  // Crear TimeSlots a partir de la disponibilidad
+  return availabilityData.map(slot => {
+    // Verificar si este slot está ocupado
+    const isBooked = bookings?.some(booking => 
+      booking.start_time === slot.start_time && 
+      booking.end_time === slot.end_time
+    ) || false;
+    
+    console.log(`Slot ${slot.start_time}-${slot.end_time}:`, isBooked ? 'OCUPADO' : 'LIBRE');
+    
+    return {
+      id: `${dateString}-${slot.start_time}`,
+      date: dateString,
+      startTime: slot.start_time,
+      endTime: slot.end_time,
+      isAvailable: !isBooked,
+    };
+  });
+};
 
   const createBooking = async (
     studentId: string,
