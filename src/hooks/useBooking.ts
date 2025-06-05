@@ -1,7 +1,7 @@
-import { useBooking } from '../context/BookingContext';
+import { useBooking as useBookingContext } from '../context/BookingContext';
 
 export const useBooking = () => {
-  return useBooking();
+  return useBookingContext();
 };
 
 export default useBooking;
