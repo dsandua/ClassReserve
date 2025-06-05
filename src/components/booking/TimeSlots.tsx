@@ -68,22 +68,31 @@ const TimeSlots = ({ date, timeSlots = [], selectedSlot, onSelectSlot }: TimeSlo
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {validTimeSlots.map((slot) => {
               const isPast = isSlotPast(slot);
+              const isUnavailable = !slot.isAvailable || isPast;
+              const isSelected = isSlotSelected(slot);
+              
               return (
                 <button
                   key={slot.id}
                   onClick={() => handleSelectSlot(slot)}
-                  disabled={!slot.isAvailable || isPast}
+                  disabled={isUnavailable}
                   className={`
-                    time-slot 
-                    ${isSlotSelected(slot) ? 'time-slot-selected' : ''} 
-                    ${!slot.isAvailable || isPast ? 'time-slot-unavailable' : ''}
+                    relative p-4 rounded-md border transition-colors
+                    ${isSelected 
+                      ? 'border-primary-500 bg-primary-50 text-primary-700' 
+                      : isUnavailable
+                        ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'border-gray-200 hover:border-primary-300 hover:bg-primary-50'
+                    }
                   `}
                 >
-                  {slot.startTime} - {slot.endTime}
-                  {isPast && (
-                    <span className="text-xs text-gray-500 block">
-                      Hora pasada
-                    </span>
+                  <div className="text-sm font-medium">
+                    {slot.startTime} - {slot.endTime}
+                  </div>
+                  {isUnavailable && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      {isPast ? 'Hora pasada' : 'No disponible'}
+                    </div>
                   )}
                 </button>
               );
