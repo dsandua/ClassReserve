@@ -285,14 +285,21 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
 
   const cancelBooking = async (bookingId: string): Promise<boolean> => {
     try {
-      const { data: booking, error } = await supabase
+      const { data, error } = await supabase
         .from('bookings')
         .update({ status: 'cancelled' })
         .eq('id', bookingId)
-        .select('*, profiles(name, email)')
-        .single();
+        .select('*, profiles(name, email)');
 
       if (error) throw error;
+      
+      // Check if any booking was updated
+      if (!data || data.length === 0) {
+        console.error('No booking found to cancel');
+        return false;
+      }
+
+      const booking = data[0];
 
       // Create notification for student
       await supabase
