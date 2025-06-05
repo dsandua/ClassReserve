@@ -528,10 +528,10 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-export const useBookingContext = () => {
+export const useBooking = () => {
   const context = useContext(BookingContext);
   if (context === undefined) {
-    throw new Error('useBookingContext must be used within a BookingProvider');
+    throw new Error('useBooking must be used within a BookingProvider');
   }
   return context;
 };
