@@ -216,7 +216,6 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
       isAvailable: !isBooked,
     };
   });
-};
  
   const createBooking = async (
     studentId: string,
