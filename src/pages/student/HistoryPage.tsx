@@ -6,6 +6,7 @@ import { useBooking } from '../../hooks/useBooking';
 import { useAuth } from '../../hooks/useAuth';
 import { Booking } from '../../context/BookingContext';
 import toast from 'react-hot-toast';
+import { formatTimeRange } from '../../utils/time';
 
 const HistoryPage = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
