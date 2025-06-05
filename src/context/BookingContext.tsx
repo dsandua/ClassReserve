@@ -101,6 +101,9 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
 // En src/context/BookingContext.tsx
 // Reemplaza la función getAvailableTimeSlots con esta versión corregida:
 
+// En src/context/BookingContext.tsx
+// Reemplaza la función getAvailableTimeSlots con esta versión corregida:
+
 const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
   const dayOfWeek = date.getDay();
   
@@ -138,14 +141,44 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
   console.log('Reservas existentes para', format(date, 'yyyy-MM-dd'), ':', bookings);
   console.log('Slots de disponibilidad:', availabilityData.slots);
   
+  // Mostrar el contenido exacto de la primera reserva para debug
+  if (bookings && bookings.length > 0) {
+    console.log('PRIMERA RESERVA DETALLE:', {
+      start_time: bookings[0].start_time,
+      end_time: bookings[0].end_time,
+      status: bookings[0].status,
+      start_time_type: typeof bookings[0].start_time,
+      end_time_type: typeof bookings[0].end_time
+    });
+  }
+  
   // Filtrar solo los slots que NO están reservados
   const availableSlots = availabilityData.slots
     .filter(slot => {
+      console.log('COMPARANDO SLOT:', {
+        slot_start: slot.startTime,
+        slot_end: slot.endTime,
+        slot_start_type: typeof slot.startTime,
+        slot_end_type: typeof slot.endTime
+      });
+      
       // Verificar si este slot ya está reservado
-      const isBooked = bookings?.some(booking => 
-        booking.start_time === slot.startTime && 
-        booking.end_time === slot.endTime
-      );
+      const isBooked = bookings?.some(booking => {
+        const startMatch = booking.start_time === slot.startTime;
+        const endMatch = booking.end_time === slot.endTime;
+        
+        console.log('COMPARACIÓN:', {
+          booking_start: booking.start_time,
+          slot_start: slot.startTime,
+          startMatch,
+          booking_end: booking.end_time,
+          slot_end: slot.endTime,
+          endMatch,
+          bothMatch: startMatch && endMatch
+        });
+        
+        return startMatch && endMatch;
+      });
       
       console.log(`Slot ${slot.startTime}-${slot.endTime}: ${isBooked ? 'OCUPADO' : 'LIBRE'}`);
       
@@ -163,7 +196,6 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
   
   return availableSlots;
 };
-
   const createBooking = async (
     studentId: string,
     studentName: string,
