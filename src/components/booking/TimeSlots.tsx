@@ -102,7 +102,7 @@ const TimeSlots = ({ date, timeSlots = [], selectedSlot, onSelectSlot }: TimeSlo
                   className={className}
                 >
                   <div className="font-medium">
-                    {slot.startTime} - {slot.endTime}
+                    {slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}
                   </div>
                   {statusText && (
                     <div className="text-xs mt-1 opacity-75">
