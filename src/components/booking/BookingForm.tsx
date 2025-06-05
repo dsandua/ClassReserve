@@ -4,6 +4,7 @@ import { TimeSlot, Booking } from '../../context/BookingContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useBooking } from '../../hooks/useBooking';
 import toast from 'react-hot-toast';
+import { formatTimeRange } from '../../utils/time';
 
 type BookingFormProps = {
   selectedDate: Date;
