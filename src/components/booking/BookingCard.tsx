@@ -3,7 +3,7 @@ import { es } from 'date-fns/locale';
 import { Clock, Check, X, Calendar, Video, Link as LinkIcon } from 'lucide-react';
 import { Booking } from '../../context/BookingContext';
 import { useState } from 'react';
-import { useBooking } from '../../context/BookingContext';
+import { useBooking } from '../hooks/useBooking';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 
