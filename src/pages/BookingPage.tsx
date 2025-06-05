@@ -11,6 +11,7 @@ const BookingPage = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   const { getAvailableTimeSlots } = useBooking();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -19,11 +20,16 @@ const BookingPage = () => {
   useEffect(() => {
     const fetchTimeSlots = async () => {
       try {
+        setIsLoadingSlots(true);
+        setSelectedSlot(null); // Reset selected slot when date changes
+        
         const slots = await getAvailableTimeSlots(selectedDate);
         setAvailableSlots(Array.isArray(slots) ? slots : []);
       } catch (error) {
         console.error('Error fetching time slots:', error);
         setAvailableSlots([]);
+      } finally {
+        setIsLoadingSlots(false);
       }
     };
 
@@ -72,6 +78,7 @@ const BookingPage = () => {
             timeSlots={availableSlots}
             selectedSlot={selectedSlot}
             onSelectSlot={handleSlotSelect}
+            isLoading={isLoadingSlots}
           />
         </div>
         
