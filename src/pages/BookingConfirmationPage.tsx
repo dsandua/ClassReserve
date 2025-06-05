@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { CheckCircle, Calendar, Clock, ArrowLeft } from 'lucide-react';
 import { Booking } from '../context/BookingContext';
+import { formatTimeRange } from '../utils/time';
 
 const BookingConfirmationPage = () => {
   const location = useLocation();
