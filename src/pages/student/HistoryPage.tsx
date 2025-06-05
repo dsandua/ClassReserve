@@ -210,7 +210,7 @@ const HistoryPage = () => {
                       {format(parseISO(booking.date), 'dd/MM/yyyy')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {booking.startTime} - {booking.endTime}
+                      {formatTimeRange(booking.startTime)} - {booking.endTime}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(booking.status)}
