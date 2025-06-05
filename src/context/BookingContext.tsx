@@ -501,3 +501,6 @@ export const useBookingContext = () => {
   }
   return context;
 };
+
+// Add the export alias for useBooking
+export { useBookingContext as useBooking };
