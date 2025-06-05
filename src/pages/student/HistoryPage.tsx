@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Filter, Search, Download } from 'lucide-react';
-import { useBooking } from '../hooks/useBooking';
+import { useBooking } from '../../hooks/useBooking';
 import { useAuth } from '../../hooks/useAuth';
 import { Booking } from '../../context/BookingContext';
 import toast from 'react-hot-toast';
