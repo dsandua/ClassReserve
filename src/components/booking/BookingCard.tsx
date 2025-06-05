@@ -137,7 +137,7 @@ const BookingCard = ({
           
           <div className="flex items-center">
             <Clock className="h-5 w-5 text-gray-500" />
-            <span className="ml-2 text-sm text-gray-700">{formatTimeRange(booking.startTime), formatTimeRange(booking.endTime)}</span>
+            <span className="ml-2 text-sm text-gray-700">{formatTimeRange(booking.startTime, booking.endTime)}</span>
           </div>
           
           {booking.status === 'confirmed' && (
