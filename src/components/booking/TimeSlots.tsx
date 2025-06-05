@@ -7,16 +7,9 @@ type TimeSlotsProps = {
   timeSlots: TimeSlot[];
   selectedSlot: TimeSlot | null;
   onSelectSlot: (slot: TimeSlot) => void;
-  isLoading?: boolean;
 };
 
-const TimeSlots = ({ 
-  date, 
-  timeSlots = [], 
-  selectedSlot, 
-  onSelectSlot,
-  isLoading = false 
-}: TimeSlotsProps) => {
+const TimeSlots = ({ date, timeSlots = [], selectedSlot, onSelectSlot }: TimeSlotsProps) => {
   // Format the date for display
   const formattedDate = format(date, "EEEE, d 'de' MMMM", { locale: es });
   
@@ -53,6 +46,9 @@ const TimeSlots = ({
     slotDateTime.setHours(hours, minutes);
     return isBefore(slotDateTime, now);
   };
+
+  // Ensure timeSlots is always an array
+  const validTimeSlots = Array.isArray(timeSlots) ? timeSlots : [];
   
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
@@ -63,18 +59,14 @@ const TimeSlots = ({
       </div>
       
       <div className="p-4">
-        {isLoading ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500">Cargando horarios disponibles...</p>
-          </div>
-        ) : !Array.isArray(timeSlots) || timeSlots.length === 0 ? (
+        {validTimeSlots.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-gray-500">No hay horarios disponibles para este día.</p>
             <p className="text-gray-500 text-sm mt-2">Por favor, selecciona otro día del calendario.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {timeSlots.map((slot) => {
+            {validTimeSlots.map((slot) => {
               const isPast = isSlotPast(slot);
               return (
                 <button
@@ -91,11 +83,6 @@ const TimeSlots = ({
                   {isPast && (
                     <span className="text-xs text-gray-500 block">
                       Hora pasada
-                    </span>
-                  )}
-                  {!slot.isAvailable && !isPast && (
-                    <span className="text-xs text-gray-500 block">
-                      Ocupado
                     </span>
                   )}
                 </button>
