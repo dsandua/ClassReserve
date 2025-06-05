@@ -6,7 +6,7 @@
 export const formatTime = (time: string): string => {
   if (!time) return '';
   // Toma solo los primeros 5 caracteres (HH:MM)
-  return time.substring(0, 5);
+  return time.slice(0, 5); // De "HH:MM:SS" a "HH:MM"
 };
 
 /**
