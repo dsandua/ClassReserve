@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { createClient } from '@supabase/supabase-js';
+import { formatTimeRange } from '../../utils/time';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
