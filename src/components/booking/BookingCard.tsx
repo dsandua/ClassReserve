@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useBooking } from '../../hooks/useBooking';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
+import { formatTimeRange } from '../../utils/time';
 
 type BookingCardProps = {
   booking: Booking;
