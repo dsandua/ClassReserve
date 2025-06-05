@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { format, addMonths, subMonths, isSameDay, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, X, Unlock } from 'lucide-react';
-import { useBooking } from '../../hooks/useBooking';
+import { useBooking } from '../../context/BookingContext';
 import { Booking } from '../../context/BookingContext';
 import BookingCard from '../../components/booking/BookingCard';
 import toast from 'react-hot-toast';
