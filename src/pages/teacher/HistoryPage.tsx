@@ -4,7 +4,6 @@ import { es } from 'date-fns/locale';
 import { Filter, Search, Download, FileText, ChevronDown, Trash } from 'lucide-react';
 import { useBooking } from '../../hooks/useBooking';
 import { Booking } from '../../context/BookingContext';
-import { formatTimeRange } from '../../utils/time';
 import toast from 'react-hot-toast';
 import { createClient } from '@supabase/supabase-js';
 
