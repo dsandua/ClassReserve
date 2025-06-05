@@ -4,7 +4,7 @@ import Calendar from '../components/booking/Calendar';
 import TimeSlots from '../components/booking/TimeSlots';
 import BookingForm from '../components/booking/BookingForm';
 import { TimeSlot } from '../context/BookingContext';
-import { useBookingContext as useBooking } from '../../context/BookingContext';
+import { useBooking } from '../hooks/useBooking';
 import { useAuth } from '../hooks/useAuth';
 
 const BookingPage = () => {
