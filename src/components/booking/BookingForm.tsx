@@ -74,7 +74,7 @@ const BookingForm = ({ selectedDate, selectedSlot }: BookingFormProps) => {
               <div>
                 <p className="text-sm font-medium text-gray-500">Hora</p>
                 <p className="mt-1 text-sm text-gray-900">
-                  {selectedSlot.startTime} - {selectedSlot.endTime}
+                  {formatTimeRange(selectedSlot.startTime)} - {formatTimeRange(selectedSlot.endTime)}
                 </p>
               </div>
             </div>
