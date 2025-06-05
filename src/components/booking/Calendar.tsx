@@ -14,7 +14,7 @@ import {
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useBookingContext as useBooking } from '../../context/BookingContext';
+import { useBooking } from '../hooks/useBooking';
 
 type CalendarProps = {
   selectedDate: Date;
