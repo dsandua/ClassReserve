@@ -151,7 +151,18 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
       end_time_type: typeof bookings[0].end_time
     });
   }
-  const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
+  
+  // Filtrar solo los slots que NO están reservados
+  const availableSlots = availabilityData.slots
+    .filter(slot => {
+      console.log('COMPARANDO SLOT:', {
+        slot_start: slot.startTime,
+        slot_end: slot.endTime,
+        slot_start_type: typeof slot.startTime,
+        slot_end_type: typeof slot.endTime
+      });
+      
+const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
   const dayOfWeek = date.getDay();
   
   console.log('Obteniendo slots para día:', dayOfWeek, 'fecha:', format(date, 'yyyy-MM-dd'));
@@ -215,7 +226,8 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
       endTime: slot.end_time,
       isAvailable: !isBooked,
     };
- 
+  });
+};
   const createBooking = async (
     studentId: string,
     studentName: string,
