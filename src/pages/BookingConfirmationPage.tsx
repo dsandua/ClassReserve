@@ -59,7 +59,7 @@ const BookingConfirmationPage = () => {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-700">Hora</p>
                 <p className="text-sm text-gray-900">
-                  {formatTimeRange(booking.startTime)} - {formatTimeRange(booking.endTime)}
+                  {booking.startTime?.slice(0, 5) } - {booking.endTime?.slice(0, 5) }
                 </p>
               </div>
             </div>
