@@ -4,7 +4,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Calendar, Clock, ArrowRight, Check } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { useBooking } from '../../hooks/useBooking';
+import { useBooking } from '../../context/BookingContext';
 import { Booking } from '../../context/BookingContext';
 import BookingCard from '../../components/booking/BookingCard';
 
