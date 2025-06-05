@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TimeSlot, Booking } from '../../context/BookingContext';
 import { useAuth } from '../../hooks/useAuth';
-import { useBooking } from '../../context/BookingContext';
+import { useBooking } from '../hooks/useBooking';
 import toast from 'react-hot-toast';
 
 type BookingFormProps = {
