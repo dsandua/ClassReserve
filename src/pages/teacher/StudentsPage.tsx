@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, Trash, Edit, ExternalLink, X, History } from 'lucide-react';
 import { User } from '../../context/AuthContext';
-import { useBooking } from '../../context/BookingContext';
+import { useBooking } from '../hooks/useBooking';
 import { Booking } from '../../context/BookingContext';
 import toast from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
