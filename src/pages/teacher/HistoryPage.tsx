@@ -6,6 +6,7 @@ import { useBooking } from '../../hooks/useBooking';
 import { Booking } from '../../context/BookingContext';
 import toast from 'react-hot-toast';
 import { createClient } from '@supabase/supabase-js';
+import { formatTimeRange } from '../../utils/time';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
