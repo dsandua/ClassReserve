@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Clock, Users, Check, X } from 'lucide-react';
+import { Calendar, Clock, Users, Check, X, AlertCircle, RotateCcw } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useBooking } from '../../hooks/useBooking';
 import { useNotifications } from '../../context/NotificationsContext';
@@ -8,7 +8,8 @@ import { Booking } from '../../context/BookingContext';
 import BookingCard from '../../components/booking/BookingCard';
 import toast from 'react-hot-toast';
 import { createClient } from '@supabase/supabase-js';
-import { parseISO, isAfter, startOfDay, addDays } from 'date-fns';
+import { parseISO, isAfter, startOfDay, addDays, format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -17,17 +18,35 @@ const supabase = createClient(
 
 const TeacherDashboardPage = () => {
   const { user } = useAuth();
-  const { getTeacherBookings, getPendingBookings, confirmBooking, cancelBooking } = useBooking();
+  const { 
+    getTeacherBookings, 
+    getPendingBookings, 
+    confirmBooking, 
+    cancelBooking,
+    markCompletedBookings,
+    revertCompletedBooking
+  } = useBooking();
   const { markAsRead } = useNotifications();
   const [pendingBookings, setPendingBookings] = useState<Booking[]>([]);
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
+  const [recentlyCompletedBookings, setRecentlyCompletedBookings] = useState<Booking[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [studentCount, setStudentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [showRevertModal, setShowRevertModal] = useState(false);
+  const [selectedBookingToRevert, setSelectedBookingToRevert] = useState<Booking | null>(null);
 
   const fetchData = async () => {
     try {
       setIsLoading(true);
+      
+      // Marcar clases como completadas automáticamente
+      const { completedCount, completedBookings } = await markCompletedBookings();
+      
+      if (completedCount > 0) {
+        setRecentlyCompletedBookings(completedBookings);
+        toast.success(`${completedCount} clase(s) marcada(s) como completadas automáticamente`);
+      }
       
       // Obtener el conteo de estudiantes
       const { count } = await supabase
@@ -135,6 +154,32 @@ const TeacherDashboardPage = () => {
       setIsProcessing(false);
     }
   };
+
+  const handleRevertBooking = async () => {
+    if (!selectedBookingToRevert || isProcessing) return;
+    
+    setIsProcessing(true);
+    
+    try {
+      const success = await revertCompletedBooking(selectedBookingToRevert.id);
+      
+      if (success) {
+        // Remover de la lista de clases completadas recientemente
+        setRecentlyCompletedBookings(prev => 
+          prev.filter(booking => booking.id !== selectedBookingToRevert.id)
+        );
+        
+        setShowRevertModal(false);
+        setSelectedBookingToRevert(null);
+        toast.success('Clase marcada como no realizada');
+      }
+    } catch (error) {
+      console.error('Error reverting booking:', error);
+      toast.error('Error al revertir la clase');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
   
   if (isLoading) {
     return (
@@ -208,7 +253,103 @@ const TeacherDashboardPage = () => {
             </div>
           </div>
         </div>
+
+        <div className="bg-white overflow-hidden shadow-sm rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0 bg-success-100 rounded-md p-3">
+                <Check className="h-6 w-6 text-success-600" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500">Completadas hoy</dt>
+                  <dd>
+                    <div className="text-lg font-medium text-gray-900">{recentlyCompletedBookings.length}</div>
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Recently completed bookings */}
+      {recentlyCompletedBookings.length > 0 && (
+        <div className="mb-8">
+          <div className="bg-success-50 border border-success-200 rounded-lg p-4 mb-4">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <AlertCircle className="h-5 w-5 text-success-600" />
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-medium text-success-800">
+                  Clases completadas automáticamente
+                </h3>
+                <div className="mt-2 text-sm text-success-700">
+                  <p>
+                    Se han marcado {recentlyCompletedBookings.length} clase(s) como completadas automáticamente. 
+                    Si alguna clase no se realizó, puedes marcarla como "no realizada".
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {recentlyCompletedBookings.map((booking) => (
+              <div key={booking.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-800">
+                    Completada
+                  </span>
+                  <button
+                    onClick={() => {
+                      setSelectedBookingToRevert(booking);
+                      setShowRevertModal(true);
+                    }}
+                    className="text-warning-600 hover:text-warning-700 text-xs font-medium flex items-center"
+                    title="Marcar como no realizada"
+                  >
+                    <RotateCcw className="h-3 w-3 mr-1" />
+                    No realizada
+                  </button>
+                </div>
+                
+                <div className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-sm font-medium text-gray-600">
+                            {booking.studentName?.charAt(0) ?? ''}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-900">{booking.studentName}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <Calendar className="h-5 w-5 text-gray-500" />
+                      <span className="ml-2 text-sm text-gray-700">
+                        {format(parseISO(booking.date), "EEEE, d 'de' MMMM", { locale: es })}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <Clock className="h-5 w-5 text-gray-500" />
+                      <span className="ml-2 text-sm text-gray-700">
+                        {booking.startTime?.slice(0, 5)} - {booking.endTime?.slice(0, 5)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
       {/* Pending bookings */}
       <div className="mb-8">
@@ -343,6 +484,60 @@ const TeacherDashboardPage = () => {
           </Link>
         </div>
       </div>
+
+      {/* Revert Confirmation Modal */}
+      {showRevertModal && selectedBookingToRevert && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 animate-slide-in">
+            <div className="px-4 py-3 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Confirmar acción</h3>
+            </div>
+            
+            <div className="p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-6 w-6 text-warning-600" />
+                </div>
+                <div className="ml-3">
+                  <h4 className="text-sm font-medium text-gray-900">
+                    ¿Marcar clase como no realizada?
+                  </h4>
+                  <div className="mt-2 text-sm text-gray-500">
+                    <p>
+                      Vas a marcar la clase de <strong>{selectedBookingToRevert.studentName}</strong> del{' '}
+                      <strong>{format(parseISO(selectedBookingToRevert.date), "d 'de' MMMM", { locale: es })}</strong> como no realizada.
+                    </p>
+                    <p className="mt-2">
+                      Esta acción cambiará el estado de la clase a "cancelada" y notificará al estudiante.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowRevertModal(false);
+                    setSelectedBookingToRevert(null);
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-warning"
+                  onClick={handleRevertBooking}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? 'Procesando...' : 'Marcar como no realizada'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

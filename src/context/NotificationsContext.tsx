@@ -302,6 +302,7 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
 
     try {
       // Optimistically update the UI
+      const previousNotifications = [...notifications];
       setNotifications([]);
 
       const { error } = await supabase
@@ -311,6 +312,7 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
 
       if (error) {
         // Revert optimistic update if the operation fails
+        setNotifications(previousNotifications);
         throw error;
       }
 
@@ -318,22 +320,6 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     } catch (error) {
       console.error('Error deleting all notifications:', error);
       toast.error('Error al eliminar las notificaciones');
-      // Revert optimistic update by refetching
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id);
-      if (data) {
-        setNotifications(data.map(n => ({
-          id: n.id,
-          type: n.type,
-          title: n.title,
-          message: n.message,
-          time: getRelativeTime(new Date(n.created_at)),
-          read: n.read,
-          link: n.link
-        })));
-      }
     }
   };
 

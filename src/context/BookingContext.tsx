@@ -61,6 +61,8 @@ type BookingContextType = {
   availabilitySettings: DayAvailability[];
   updateAvailabilitySettings: (settings: DayAvailability[]) => Promise<boolean>;
   updateMeetingLink: (bookingId: string, meetingLink: string) => Promise<boolean>;
+  markCompletedBookings: () => Promise<{ completedCount: number; completedBookings: Booking[] }>;
+  revertCompletedBooking: (bookingId: string) => Promise<boolean>;
 };
 
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
@@ -474,6 +476,118 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
     }
   };
 
+  const markCompletedBookings = async (): Promise<{ completedCount: number; completedBookings: Booking[] }> => {
+    try {
+      const now = new Date();
+      const currentDate = format(now, 'yyyy-MM-dd');
+      const currentTime = format(now, 'HH:mm:ss');
+
+      // Buscar clases confirmadas que ya hayan terminado
+      const { data: expiredBookings, error: fetchError } = await supabase
+        .from('bookings')
+        .select('*, profiles(name, email)')
+        .eq('status', 'confirmed')
+        .or(`date.lt.${currentDate},and(date.eq.${currentDate},end_time.lt.${currentTime})`);
+
+      if (fetchError) throw fetchError;
+
+      if (!expiredBookings || expiredBookings.length === 0) {
+        return { completedCount: 0, completedBookings: [] };
+      }
+
+      // Marcar como completadas
+      const bookingIds = expiredBookings.map(booking => booking.id);
+      
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({ status: 'completed' })
+        .in('id', bookingIds);
+
+      if (updateError) throw updateError;
+
+      // Crear notificaciones para los estudiantes
+      const notifications = expiredBookings.map(booking => ({
+        user_id: booking.student_id,
+        type: 'system',
+        title: 'Clase completada',
+        message: `Tu clase del ${booking.date} de ${booking.start_time} a ${booking.end_time} ha sido marcada como completada`,
+        link: '/student/dashboard'
+      }));
+
+      if (notifications.length > 0) {
+        await supabase
+          .from('notifications')
+          .insert(notifications);
+      }
+
+      // Obtener el ID del profesor para crear notificación
+      const { data: teacherProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'teacher')
+        .single();
+
+      if (teacherProfile && expiredBookings.length > 0) {
+        await supabase
+          .from('notifications')
+          .insert([{
+            user_id: teacherProfile.id,
+            type: 'system',
+            title: 'Clases completadas automáticamente',
+            message: `Se han marcado ${expiredBookings.length} clase(s) como completadas automáticamente`,
+            link: '/teacher/dashboard'
+          }]);
+      }
+
+      const completedBookings = expiredBookings.map(booking => ({
+        id: booking.id,
+        studentId: booking.student_id,
+        studentName: booking.profiles.name,
+        date: booking.date,
+        startTime: booking.start_time,
+        endTime: booking.end_time,
+        status: 'completed' as const,
+        notes: booking.notes,
+        createdAt: booking.created_at
+      }));
+
+      return { completedCount: expiredBookings.length, completedBookings };
+    } catch (error) {
+      console.error('Error marking completed bookings:', error);
+      return { completedCount: 0, completedBookings: [] };
+    }
+  };
+
+  const revertCompletedBooking = async (bookingId: string): Promise<boolean> => {
+    try {
+      const { data: booking, error } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', bookingId)
+        .eq('status', 'completed')
+        .select('*, profiles(name, email)')
+        .single();
+
+      if (error) throw error;
+
+      // Crear notificación para el estudiante
+      await supabase
+        .from('notifications')
+        .insert([{
+          user_id: booking.student_id,
+          type: 'cancellation',
+          title: 'Clase marcada como no realizada',
+          message: `Tu clase del ${booking.date} de ${booking.start_time} a ${booking.end_time} ha sido marcada como no realizada por el profesor`,
+          link: '/student/dashboard'
+        }]);
+
+      return true;
+    } catch (error) {
+      console.error('Error reverting completed booking:', error);
+      return false;
+    }
+  };
+
   return (
     <BookingContext.Provider value={{
       bookings: [],
@@ -491,6 +605,8 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
       availabilitySettings,
       updateAvailabilitySettings,
       updateMeetingLink,
+      markCompletedBookings,
+      revertCompletedBooking,
     }}>
       {children}
     </BookingContext.Provider>
