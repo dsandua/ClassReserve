@@ -136,7 +136,8 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
         .select('*')
         .eq('day_of_week', dayOfWeek)
         .eq('is_available', true)
-          .order('start_time', { ascending: true }); // Añadir esta línea;
+          .order('start_time', { ascending: true })
+        ;
       
       if (availabilityError) {
         console.error('Error fetching availability:', availabilityError);
