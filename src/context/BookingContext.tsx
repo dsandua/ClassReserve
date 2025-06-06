@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { addDays, format, parseISO, isSameDay } from 'date-fns';
 import { createClient } from '@supabase/supabase-js';
 
@@ -63,6 +63,7 @@ type BookingContextType = {
   updateMeetingLink: (bookingId: string, meetingLink: string) => Promise<boolean>;
   markCompletedBookings: () => Promise<{ completedCount: number; completedBookings: Booking[] }>;
   revertCompletedBooking: (bookingId: string) => Promise<boolean>;
+  fetchBlockedTimes: () => Promise<void>;
 };
 
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
@@ -93,6 +94,37 @@ const sendEmail = async (to: string, subject: string, body: string) => {
 export const BookingProvider = ({ children }: { children: ReactNode }) => {
   const [blockedTimes, setBlockedTimes] = useState<BlockedTime[]>([]);
   const [availabilitySettings, setAvailabilitySettings] = useState<DayAvailability[]>([]);
+
+  // Fetch blocked times from database
+  const fetchBlockedTimes = async (): Promise<void> => {
+    try {
+      const { data, error } = await supabase
+        .from('blocked_times')
+        .select('*')
+        .order('start_date', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching blocked times:', error);
+        return;
+      }
+
+      const blockedTimesData: BlockedTime[] = data.map(item => ({
+        id: item.id,
+        startDate: item.start_date,
+        endDate: item.end_date,
+        reason: item.reason
+      }));
+
+      setBlockedTimes(blockedTimesData);
+    } catch (error) {
+      console.error('Error in fetchBlockedTimes:', error);
+    }
+  };
+
+  // Load blocked times on component mount
+  useEffect(() => {
+    fetchBlockedTimes();
+  }, []);
 
 const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
     const dayOfWeek = date.getDay();
@@ -409,6 +441,10 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
         }]);
 
       if (error) throw error;
+      
+      // Refresh blocked times after successful insertion
+      await fetchBlockedTimes();
+      
       return true;
     } catch (error) {
       console.error('Error blocking time slot:', error);
@@ -425,6 +461,10 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
         .lte('end_date', endDate);
 
       if (error) throw error;
+      
+      // Refresh blocked times after successful deletion
+      await fetchBlockedTimes();
+      
       return true;
     } catch (error) {
       console.error('Error unblocking time slot:', error);
@@ -607,6 +647,7 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
       updateMeetingLink,
       markCompletedBookings,
       revertCompletedBooking,
+      fetchBlockedTimes,
     }}>
       {children}
     </BookingContext.Provider>

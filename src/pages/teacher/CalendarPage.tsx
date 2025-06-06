@@ -29,23 +29,24 @@ const CalendarPage = () => {
     blockTimeSlot,
     unblockTimeSlot,
     isTimeBlocked,
-    availabilitySettings
+    availabilitySettings,
+    fetchBlockedTimes
   } = useBooking();
 
-  useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        setIsLoading(true);
-        const bookings = await getTeacherBookings();
-        setAllBookings(bookings);
-      } catch (error) {
-        console.error('Error fetching bookings:', error);
-        toast.error('Error al cargar las reservas');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchBookings = async () => {
+    try {
+      setIsLoading(true);
+      const bookings = await getTeacherBookings();
+      setAllBookings(bookings);
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+      toast.error('Error al cargar las reservas');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchBookings();
   }, [getTeacherBookings]);
   
@@ -173,13 +174,28 @@ const CalendarPage = () => {
     }
     
     try {
-      const success = await blockTimeSlot(blockStartDate, blockEndDate, blockReason);
+      // Convert date strings to Date objects
+      const startDate = new Date(blockStartDate);
+      const endDate = new Date(blockEndDate);
+      
+      // Use startOfDay for start and endOfDay for end to ensure proper constraint satisfaction
+      const start = startOfDay(startDate);
+      const end = endOfDay(endDate);
+      
+      const success = await blockTimeSlot(
+        start.toISOString(),
+        end.toISOString(),
+        blockReason
+      );
       
       if (success) {
         setIsBlockingTime(false);
         setBlockStartDate('');
         setBlockEndDate('');
         setBlockReason('');
+        
+        // Refresh the calendar view
+        await fetchBookings();
         
         toast.success('Período bloqueado con éxito');
       }
@@ -213,6 +229,9 @@ const CalendarPage = () => {
         setIsUnblockingTime(false);
         setUnblockStartDate('');
         setUnblockEndDate('');
+        
+        // Refresh the calendar view
+        await fetchBookings();
         
         toast.success('Período desbloqueado con éxito');
       }
