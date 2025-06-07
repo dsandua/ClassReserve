@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Trash, Edit, ExternalLink, X, History } from 'lucide-react';
+import { Search, Plus, Trash, Edit, ExternalLink, X, History, Euro } from 'lucide-react';
 import { User } from '../../context/AuthContext';
 import { useBooking } from '../../hooks/useBooking';
 import { Booking } from '../../context/BookingContext';
@@ -28,13 +28,15 @@ const StudentsPage = () => {
     name: '',
     email: '',
     phone: '',
-    notes: ''
+    notes: '',
+    price: '25.00'
   });
   const [editStudent, setEditStudent] = useState({
     name: '',
     email: '',
     phone: '',
-    notes: ''
+    notes: '',
+    price: '25.00'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -95,6 +97,7 @@ const StudentsPage = () => {
           email: newStudent.email,
           phone: newStudent.phone,
           notes: newStudent.notes,
+          price: parseFloat(newStudent.price),
           role: 'student'
         }])
         .select()
@@ -103,7 +106,7 @@ const StudentsPage = () => {
       if (error) throw error;
       setStudents(prev => [...prev, data]);
       setShowAddModal(false);
-      setNewStudent({ name: '', email: '', phone: '', notes: '' });
+      setNewStudent({ name: '', email: '', phone: '', notes: '', price: '25.00' });
       toast.success('Alumno añadido con éxito');
     } catch (error) {
       console.error('Error creating student:', error);
@@ -129,7 +132,8 @@ const StudentsPage = () => {
           name: editStudent.name,
           email: editStudent.email,
           phone: editStudent.phone,
-          notes: editStudent.notes
+          notes: editStudent.notes,
+          price: parseFloat(editStudent.price)
         })
         .eq('id', selectedStudent.id)
         .select();
@@ -141,7 +145,7 @@ const StudentsPage = () => {
         ));
         setShowEditModal(false);
         setSelectedStudent(null);
-        setEditStudent({ name: '', email: '', phone: '', notes: '' });
+        setEditStudent({ name: '', email: '', phone: '', notes: '', price: '25.00' });
         toast.success('Alumno actualizado con éxito');
       } else {
         throw new Error('No se pudo actualizar el alumno');
@@ -185,7 +189,8 @@ const StudentsPage = () => {
       name: student.name,
       email: student.email,
       phone: student.phone || '',
-      notes: student.notes || ''
+      notes: student.notes || '',
+      price: (student.price || 25.00).toString()
     });
     setShowEditModal(true);
   };
@@ -295,6 +300,9 @@ const StudentsPage = () => {
                     Teléfono
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Precio/Hora
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Notas
                   </th>
                   <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -332,6 +340,9 @@ const StudentsPage = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">{student.phone || '-'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">€{(student.price || 25.00).toFixed(2)}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-500 max-w-xs truncate">
@@ -429,6 +440,27 @@ const StudentsPage = () => {
                 </div>
                 
                 <div>
+                  <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
+                    Precio por hora (€) *
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Euro className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="number"
+                      id="price"
+                      step="0.01"
+                      min="0"
+                      className="input pl-10"
+                      value={newStudent.price}
+                      onChange={(e) => setNewStudent(prev => ({ ...prev, price: e.target.value }))}
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div>
                   <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
                     Notas
                   </label>
@@ -518,6 +550,27 @@ const StudentsPage = () => {
                     value={editStudent.phone}
                     onChange={(e) => setEditStudent(prev => ({ ...prev, phone: e.target.value }))}
                   />
+                </div>
+                
+                <div>
+                  <label htmlFor="edit-price" className="block text-sm font-medium text-gray-700 mb-1">
+                    Precio por hora (€) *
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Euro className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="number"
+                      id="edit-price"
+                      step="0.01"
+                      min="0"
+                      className="input pl-10"
+                      value={editStudent.price}
+                      onChange={(e) => setEditStudent(prev => ({ ...prev, price: e.target.value }))}
+                      required
+                    />
+                  </div>
                 </div>
                 
                 <div>
@@ -628,12 +681,17 @@ const StudentsPage = () => {
                   <div>
                     <h4 className="text-lg font-medium text-gray-900">{selectedStudent.name}</h4>
                     <p className="text-sm text-gray-500">{selectedStudent.email}</p>
+                    <p className="text-sm font-medium text-gray-700">€{(selectedStudent.price || 25.00).toFixed(2)}/hora</p>
                   </div>
                 </div>
                 
                 <div className="text-right">
                   <div className="text-2xl font-bold text-gray-900">{studentBookings.length}</div>
                   <div className="text-sm text-gray-500">clases completadas</div>
+                  <div className="text-lg font-bold text-success-600">
+                    €{(studentBookings.reduce((sum, booking) => sum + (booking.price || 0), 0)).toFixed(2)}
+                  </div>
+                  <div className="text-xs text-gray-500">total facturado</div>
                 </div>
               </div>
               
@@ -656,6 +714,7 @@ const StudentsPage = () => {
                       <tr>
                         <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Fecha</th>
                         <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Hora</th>
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Precio</th>
                         <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Estado</th>
                         <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Notas</th>
                       </tr>
@@ -667,7 +726,10 @@ const StudentsPage = () => {
                             {format(parseISO(booking.date), "d 'de' MMMM, yyyy", { locale: es })}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {formatTimeRange(booking.startTime)} - {formatTimeRange(booking.endTime)}
+                            {formatTimeRange(booking.startTime, booking.endTime)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-gray-900">
+                            €{(booking.price || 0).toFixed(2)}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
                             {getStatusBadge(booking.status)}

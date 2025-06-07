@@ -7,6 +7,9 @@ export type User = {
   email: string;
   role: 'student' | 'teacher';
   avatar?: string;
+  phone?: string;
+  notes?: string;
+  price?: number;
 };
 
 type AuthContextType = {
@@ -40,6 +43,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             name: name || email.split('@')[0],
             email,
             role: 'student',
+            price: 25.00,
             created_at: new Date().toISOString()
           }
         ])
@@ -94,7 +98,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         name: newProfile.name,
         email: session.user.email!,
         role: newProfile.role,
-        avatar: newProfile.avatar_url
+        avatar: newProfile.avatar_url,
+        phone: newProfile.phone,
+        notes: newProfile.notes,
+        price: newProfile.price
       };
       setUser(userData);
       return userData;
@@ -104,7 +111,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         name: profile.name,
         email: session.user.email!,
         role: profile.role,
-        avatar: profile.avatar_url
+        avatar: profile.avatar_url,
+        phone: profile.phone,
+        notes: profile.notes,
+        price: profile.price
       };
       setUser(userData);
       return userData;

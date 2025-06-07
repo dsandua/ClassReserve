@@ -49,7 +49,7 @@ export type BlockedTime = {
 type BookingContextType = {
   bookings: Booking[];
   getAvailableTimeSlots: (date: Date) => Promise<TimeSlot[]>;
-  createBooking: (studentId: string, studentName: string, date: string, startTime: string, endTime: string, price?: number) => Promise<Booking>;
+  createBooking: (studentId: string, studentName: string, date: string, startTime: string, endTime: string, studentPrice?: number) => Promise<Booking>;
   confirmBooking: (bookingId: string) => Promise<boolean>;
   cancelBooking: (bookingId: string) => Promise<boolean>;
   getStudentBookings: (studentId: string) => Promise<Booking[]>;
@@ -211,8 +211,20 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
     date: string,
     startTime: string,
     endTime: string,
-    price: number = 25.00
+    studentPrice?: number
   ): Promise<Booking> => {
+    // Get student's price if not provided
+    let price = studentPrice;
+    if (!price) {
+      const { data: studentProfile } = await supabase
+        .from('profiles')
+        .select('price')
+        .eq('id', studentId)
+        .single();
+      
+      price = studentProfile?.price || 25.00;
+    }
+
     const { data, error } = await supabase
       .from('bookings')
       .insert([{
