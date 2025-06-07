@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Filter, Search, Download, FileText, ChevronDown, Trash } from 'lucide-react';
+import { Filter, Search, Download, FileText, ChevronDown, Trash, Euro } from 'lucide-react';
 import { useBooking } from '../../hooks/useBooking';
 import { Booking } from '../../context/BookingContext';
 import toast from 'react-hot-toast';
@@ -24,6 +24,7 @@ const HistoryPage = () => {
   const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [totalAmount, setTotalAmount] = useState(0);
   
   const { getTeacherBookings } = useBooking();
 
@@ -67,6 +68,11 @@ const HistoryPage = () => {
     }
     
     setFilteredBookings(filtered);
+    
+    // Calcular el importe total de las clases completadas
+    const completedBookings = filtered.filter(booking => booking.status === 'completed');
+    const total = completedBookings.reduce((sum, booking) => sum + (booking.price || 0), 0);
+    setTotalAmount(total);
   }, [bookings, searchQuery, statusFilter]);
 
   const handleDeleteBooking = async () => {
@@ -208,7 +214,7 @@ const HistoryPage = () => {
       </div>
       
       <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-        <div className="sm:flex sm:items-center">
+        <div className="sm:flex sm:items-center sm:space-x-4">
           <div className="sm:flex-1 relative max-w-lg">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
@@ -237,6 +243,15 @@ const HistoryPage = () => {
               </select>
             </div>
           </div>
+          <div className="mt-3 sm:mt-0 sm:ml-4">
+            <div className="bg-success-50 border border-success-200 rounded-lg px-4 py-2 flex items-center">
+              <Euro className="h-5 w-5 text-success-600 mr-2" />
+              <div>
+                <div className="text-xs font-medium text-success-800">Importe Total</div>
+                <div className="text-lg font-bold text-success-900">€{totalAmount.toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       
@@ -262,6 +277,9 @@ const HistoryPage = () => {
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Hora
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Precio
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Estado
@@ -298,6 +316,9 @@ const HistoryPage = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{booking.startTime?.slice(0, 5) } - {booking.endTime?.slice(0, 5) }</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">€{(booking.price || 0).toFixed(2)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="relative">

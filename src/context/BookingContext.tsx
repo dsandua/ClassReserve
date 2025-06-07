@@ -26,6 +26,7 @@ export type Booking = {
   meetingLink?: string;
   customMeetingLink?: string;
   notes?: string;
+  price?: number;
   createdAt: string;
 };
 
@@ -48,7 +49,7 @@ export type BlockedTime = {
 type BookingContextType = {
   bookings: Booking[];
   getAvailableTimeSlots: (date: Date) => Promise<TimeSlot[]>;
-  createBooking: (studentId: string, studentName: string, date: string, startTime: string, endTime: string) => Promise<Booking>;
+  createBooking: (studentId: string, studentName: string, date: string, startTime: string, endTime: string, price?: number) => Promise<Booking>;
   confirmBooking: (bookingId: string) => Promise<boolean>;
   cancelBooking: (bookingId: string) => Promise<boolean>;
   getStudentBookings: (studentId: string) => Promise<Booking[]>;
@@ -209,7 +210,8 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
     studentName: string,
     date: string,
     startTime: string,
-    endTime: string
+    endTime: string,
+    price: number = 25.00
   ): Promise<Booking> => {
     const { data, error } = await supabase
       .from('bookings')
@@ -219,6 +221,7 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
         start_time: startTime,
         end_time: endTime,
         status: 'pending',
+        price,
         created_at: new Date().toISOString()
       }])
       .select()
@@ -246,6 +249,7 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
       endTime: data.end_time,
       status: data.status,
       notes: data.notes,
+      price: data.price,
       createdAt: data.created_at
     };
   };
@@ -268,6 +272,7 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
       endTime: booking.end_time,
       status: booking.status,
       notes: booking.notes,
+      price: booking.price || 25.00,
       createdAt: booking.created_at
     }));
   };
@@ -377,6 +382,7 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
       endTime: booking.end_time,
       status: booking.status,
       notes: booking.notes,
+      price: booking.price || 25.00,
       createdAt: booking.created_at
     }));
   };
@@ -402,6 +408,7 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
       endTime: booking.end_time,
       status: booking.status,
       notes: booking.notes,
+      price: booking.price || 25.00,
       createdAt: booking.created_at
     }));
   };
@@ -426,6 +433,7 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
       endTime: booking.end_time,
       status: booking.status,
       notes: booking.notes,
+      price: booking.price || 25.00,
       createdAt: booking.created_at
     }));
   };
@@ -588,6 +596,7 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
         endTime: booking.end_time,
         status: 'completed' as const,
         notes: booking.notes,
+        price: booking.price || 25.00,
         createdAt: booking.created_at
       }));
 
