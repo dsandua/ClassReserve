@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Filter, Search, Download, FileText, ChevronDown, Trash, Euro } from 'lucide-react';
+import { Filter, Search, Download, FileText, ChevronDown, Trash, Euro, Plus, X, User } from 'lucide-react';
 import { useBooking } from '../../hooks/useBooking';
 import { Booking } from '../../context/BookingContext';
 import toast from 'react-hot-toast';
@@ -13,18 +13,39 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
+type Student = {
+  id: string;
+  name: string;
+  email: string;
+  price: number;
+};
+
 const HistoryPage = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showAddClassModal, setShowAddClassModal] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [bookingNotes, setBookingNotes] = useState('');
   const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [totalAmount, setTotalAmount] = useState(0);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // New class form state
+  const [newClass, setNewClass] = useState({
+    studentId: '',
+    date: '',
+    startTime: '',
+    endTime: '',
+    status: 'completed' as const,
+    notes: '',
+    price: ''
+  });
   
   const { getTeacherBookings } = useBooking();
 
@@ -41,9 +62,26 @@ const HistoryPage = () => {
       setIsLoading(false);
     }
   };
+
+  const fetchStudents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, email, price')
+        .eq('role', 'student')
+        .order('name');
+
+      if (error) throw error;
+      setStudents(data || []);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+      toast.error('Error al cargar los estudiantes');
+    }
+  };
   
   useEffect(() => {
     fetchBookings();
+    fetchStudents();
   }, [getTeacherBookings]);
   
   useEffect(() => {
@@ -74,6 +112,75 @@ const HistoryPage = () => {
     const total = completedBookings.reduce((sum, booking) => sum + (booking.price || 0), 0);
     setTotalAmount(total);
   }, [bookings, searchQuery, statusFilter]);
+
+  const handleCreateManualClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newClass.studentId || !newClass.date || !newClass.startTime || !newClass.endTime) {
+      toast.error('Por favor, completa todos los campos requeridos');
+      return;
+    }
+
+    if (newClass.startTime >= newClass.endTime) {
+      toast.error('La hora de fin debe ser posterior a la hora de inicio');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const selectedStudent = students.find(s => s.id === newClass.studentId);
+      const price = newClass.price ? parseFloat(newClass.price) : (selectedStudent?.price || 25.00);
+
+      const { data, error } = await supabase
+        .from('bookings')
+        .insert([{
+          student_id: newClass.studentId,
+          date: newClass.date,
+          start_time: newClass.startTime,
+          end_time: newClass.endTime,
+          status: newClass.status,
+          notes: newClass.notes,
+          price: price,
+          created_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Refresh bookings
+      await fetchBookings();
+
+      // Reset form
+      setNewClass({
+        studentId: '',
+        date: '',
+        startTime: '',
+        endTime: '',
+        status: 'completed',
+        notes: '',
+        price: ''
+      });
+
+      setShowAddClassModal(false);
+      toast.success('Clase añadida con éxito');
+    } catch (error) {
+      console.error('Error creating manual class:', error);
+      toast.error('Error al crear la clase');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStudentChange = (studentId: string) => {
+    const selectedStudent = students.find(s => s.id === studentId);
+    setNewClass(prev => ({
+      ...prev,
+      studentId,
+      price: selectedStudent?.price?.toString() || ''
+    }));
+  };
 
   const handleDeleteBooking = async () => {
     if (!selectedBooking) return;
@@ -202,7 +309,14 @@ const HistoryPage = () => {
           </p>
         </div>
         
-        <div className="mt-4 sm:mt-0">
+        <div className="mt-4 sm:mt-0 flex space-x-3">
+          <button
+            className="btn btn-primary flex items-center"
+            onClick={() => setShowAddClassModal(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Añadir clase manual
+          </button>
           <button
             className="btn btn-secondary flex items-center"
             onClick={handleExportData}
@@ -395,7 +509,171 @@ const HistoryPage = () => {
           </div>
         )}
       </div>
+
+      {/* Add Manual Class Modal */}
+      {showAddClassModal && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 animate-slide-in">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-medium text-gray-900">Añadir clase manual</h3>
+              <button
+                className="text-gray-400 hover:text-gray-500"
+                onClick={() => setShowAddClassModal(false)}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateManualClass} className="p-4">
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="student" className="block text-sm font-medium text-gray-700 mb-1">
+                    Alumno *
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <User className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <select
+                      id="student"
+                      className="input pl-10"
+                      value={newClass.studentId}
+                      onChange={(e) => handleStudentChange(e.target.value)}
+                      required
+                    >
+                      <option value="">Selecciona un alumno</option>
+                      {students.map((student) => (
+                        <option key={student.id} value={student.id}>
+                          {student.name} - {student.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+                    Fecha *
+                  </label>
+                  <input
+                    type="date"
+                    id="date"
+                    className="input"
+                    value={newClass.date}
+                    onChange={(e) => setNewClass(prev => ({ ...prev, date: e.target.value }))}
+                    required
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 mb-1">
+                      Hora inicio *
+                    </label>
+                    <input
+                      type="time"
+                      id="startTime"
+                      className="input"
+                      value={newClass.startTime}
+                      onChange={(e) => setNewClass(prev => ({ ...prev, startTime: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 mb-1">
+                      Hora fin *
+                    </label>
+                    <input
+                      type="time"
+                      id="endTime"
+                      className="input"
+                      value={newClass.endTime}
+                      onChange={(e) => setNewClass(prev => ({ ...prev, endTime: e.target.value }))}
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                    Estado *
+                  </label>
+                  <select
+                    id="status"
+                    className="input"
+                    value={newClass.status}
+                    onChange={(e) => setNewClass(prev => ({ ...prev, status: e.target.value as 'pending' | 'confirmed' | 'completed' | 'cancelled' }))}
+                    required
+                  >
+                    <option value="completed">Completada</option>
+                    <option value="confirmed">Confirmada</option>
+                    <option value="pending">Pendiente</option>
+                    <option value="cancelled">Cancelada</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
+                    Precio (€)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Euro className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="number"
+                      id="price"
+                      step="0.01"
+                      min="0"
+                      className="input pl-10"
+                      placeholder="Precio automático del alumno"
+                      value={newClass.price}
+                      onChange={(e) => setNewClass(prev => ({ ...prev, price: e.target.value }))}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Si no se especifica, se usará el precio por defecto del alumno
+                  </p>
+                </div>
+                
+                <div>
+                  <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+                    Notas
+                  </label>
+                  <textarea
+                    id="notes"
+                    rows={3}
+                    className="input"
+                    placeholder="Notas sobre la clase..."
+                    value={newClass.notes}
+                    onChange={(e) => setNewClass(prev => ({ ...prev, notes: e.target.value }))}
+                  />
+                </div>
+              </div>
+              
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowAddClassModal(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Añadiendo...' : 'Añadir clase'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       
+      {/* Notes Modal */}
       {showNotesModal && selectedBooking && (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 animate-slide-in">
@@ -435,6 +713,7 @@ const HistoryPage = () => {
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedBooking && (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 animate-slide-in">
