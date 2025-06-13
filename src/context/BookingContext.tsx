@@ -205,8 +205,6 @@ const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
     }
   };
 
-// En src/context/BookingContext.tsx
-
 const createBooking = async (
   studentId: string,
   studentName: string,
