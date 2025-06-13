@@ -75,7 +75,7 @@ const BookingConfirmationPage = () => {
                   <h3 className="text-sm font-medium text-blue-800">Nota importante</h3>
                   <div className="mt-2 text-sm text-blue-700">
                     <p>
-                      Recibirás un email de confirmación una vez que el profesor acepte tu solicitud. También se creará automáticamente un evento en tu calendario con los detalles de la clase.
+                      Recibirás un email de confirmación una vez que el profesor acepte tu solicitud.
                     </p>
                   </div>
                 </div>
