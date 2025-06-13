@@ -1,8 +1,6 @@
-// supabase/functions/send-email/index.ts
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
-const RESEND_API_KEY = Deno.env.get('re_KGgKT9mm_23TqtnvfupGQ2dizWKgcqtR4')
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,10 +19,10 @@ serve(async (req) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${re_KGgKT9mm_23TqtnvfupGQ2dizWKgcqtR4`,
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'Clases Online <noreply@tudominio.com>', // Cambia por tu dominio
+        from: 'onboarding@resend.dev', // Using Resend's default verified domain
         to: [to],
         subject: subject,
         html: `
