@@ -94,13 +94,17 @@ const sendEmail = async (to: string, subject: string, body: string) => {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Failed to send email');
+      console.warn('Email sending failed:', error.error || 'Unknown error');
+      // Don't throw error, just log it to prevent breaking the booking flow
+      return { success: false, error: error.error };
     }
 
-    return await response.json();
+    const result = await response.json();
+    return { success: true, data: result };
   } catch (error) {
-    console.error('Error sending email:', error);
-    throw error;
+    console.warn('Error sending email:', error);
+    // Don't throw error, just log it to prevent breaking the booking flow
+    return { success: false, error: error.message };
   }
 };
 
@@ -219,13 +223,12 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
           link: '/teacher/dashboard'
         }]);
 
-      // Enviar email al profesor
-      try {
-        await sendEmail(
-          teacherData.email,
-          'Nueva solicitud de clase',
-          `¡Hola ${teacherData.name}!
-          
+      // Enviar email al profesor (no bloquear si falla)
+      await sendEmail(
+        teacherData.email,
+        'Nueva solicitud de clase',
+        `¡Hola ${teacherData.name}!
+        
 Tienes una nueva solicitud de clase:
 
 📅 Estudiante: ${studentName}
@@ -235,10 +238,7 @@ Tienes una nueva solicitud de clase:
 Por favor, revisa tu panel de control para confirmar o rechazar la solicitud.
 
 Enlace al panel: ${window.location.origin}/teacher/dashboard`
-        );
-      } catch (emailError) {
-        console.error('Error sending email to teacher:', emailError);
-      }
+      );
     }
 
     return {
@@ -300,12 +300,11 @@ Enlace al panel: ${window.location.origin}/teacher/dashboard`
           link: '/student/dashboard'
         }]);
 
-      // Enviar email al estudiante
-      try {
-        await sendEmail(
-          studentProfile.email,
-          '✅ Clase confirmada',
-          `¡Hola ${studentProfile.name}!
+      // Enviar email al estudiante (no bloquear si falla)
+      await sendEmail(
+        studentProfile.email,
+        '✅ Clase confirmada',
+        `¡Hola ${studentProfile.name}!
 
 Tu clase ha sido confirmada:
 
@@ -321,10 +320,7 @@ Tu clase ha sido confirmada:
 ¡Te esperamos!
 
 Accede a tu panel: ${window.location.origin}/student/dashboard`
-        );
-      } catch (emailError) {
-        console.error('Error sending confirmation email:', emailError);
-      }
+      );
 
       return true;
     } catch (error) {
@@ -375,12 +371,11 @@ Accede a tu panel: ${window.location.origin}/student/dashboard`
           link: '/student/dashboard'
         }]);
 
-      // Enviar email al estudiante
-      try {
-        await sendEmail(
-          studentProfile.email,
-          '❌ Clase cancelada',
-          `Hola ${studentProfile.name},
+      // Enviar email al estudiante (no bloquear si falla)
+      await sendEmail(
+        studentProfile.email,
+        '❌ Clase cancelada',
+        `Hola ${studentProfile.name},
 
 Lamentamos informarte que tu clase ha sido cancelada:
 
@@ -394,10 +389,7 @@ Lamentamos informarte que tu clase ha sido cancelada:
 Reservar nueva clase: ${window.location.origin}/student/dashboard
 
 Disculpa las molestias.`
-        );
-      } catch (emailError) {
-        console.error('Error sending cancellation email:', emailError);
-      }
+      );
 
       return true;
     } catch (error) {
@@ -447,12 +439,11 @@ Disculpa las molestias.`
             link: '/student/dashboard'
           }]);
 
-        // Send email to student
-        try {
-          await sendEmail(
-            booking.profiles.email,
-            '✅ Clase completada',
-            `¡Hola ${booking.profiles.name}!
+        // Send email to student (no bloquear si falla)
+        await sendEmail(
+          booking.profiles.email,
+          '✅ Clase completada',
+          `¡Hola ${booking.profiles.name}!
 
 Tu clase ha sido completada exitosamente:
 
@@ -463,10 +454,7 @@ Tu clase ha sido completada exitosamente:
 
 ¿Te gustaría reservar otra clase?
 Accede a tu panel: ${window.location.origin}/student/dashboard`
-          );
-        } catch (emailError) {
-          console.error('Error sending completion email:', emailError);
-        }
+        );
       }
 
       const completedBookings = bookingsToComplete.map(booking => ({
@@ -536,12 +524,11 @@ Accede a tu panel: ${window.location.origin}/student/dashboard`
           link: '/student/dashboard'
         }]);
 
-      // Send email to student
-      try {
-        await sendEmail(
-          studentProfile.email,
-          '🔄 Clase revertida',
-          `Hola ${studentProfile.name},
+      // Send email to student (no bloquear si falla)
+      await sendEmail(
+        studentProfile.email,
+        '🔄 Clase revertida',
+        `Hola ${studentProfile.name},
 
 Tu clase completada ha sido revertida y cancelada:
 
@@ -551,10 +538,7 @@ Tu clase completada ha sido revertida y cancelada:
 Si tienes dudas sobre esta acción, por favor contacta con el profesor.
 
 Accede a tu panel: ${window.location.origin}/student/dashboard`
-        );
-      } catch (emailError) {
-        console.error('Error sending revert email:', emailError);
-      }
+      );
 
       return true;
     } catch (error) {

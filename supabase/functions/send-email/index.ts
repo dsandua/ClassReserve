@@ -15,6 +15,26 @@ serve(async (req) => {
   try {
     const { to, subject, body } = await req.json()
 
+    // For testing purposes, only send emails to verified addresses
+    // In production, you should verify your own domain at resend.com/domains
+    const allowedTestEmails = ['dsandua@gmail.com'] // Add your verified email addresses here
+    const isTestingMode = true // Set to false when you have a verified domain
+    
+    if (isTestingMode && !allowedTestEmails.includes(to)) {
+      console.log(`Email would be sent to ${to} with subject: ${subject}`)
+      console.log(`Email body: ${body}`)
+      
+      // Return success but don't actually send the email
+      return new Response(JSON.stringify({ 
+        message: 'Email logged (testing mode)', 
+        recipient: to,
+        subject: subject 
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -22,7 +42,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'onboarding@resend.dev', // Using Resend's default verified domain
+        from: 'onboarding@resend.dev', // Change this to your verified domain email when ready
         to: [to],
         subject: subject,
         html: `
