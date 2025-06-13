@@ -1,7 +1,5 @@
-import { useBooking as useBookingContext } from '../context/BookingContext';
+// src/hooks/useBooking.ts
+// Este archivo ya no es necesario porque ahora exportamos useBooking directamente desde BookingContext
+// Puedes eliminarlo o simplemente re-exportar por compatibilidad:
 
-export const useBooking = () => {
-  return useBookingContext();
-};
-
-export default useBooking;
+export { useBooking } from '../context/BookingContext';
