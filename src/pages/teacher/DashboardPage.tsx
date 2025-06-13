@@ -8,7 +8,7 @@ import { Booking } from '../../context/BookingContext';
 import BookingCard from '../../components/booking/BookingCard';
 import toast from 'react-hot-toast';
 import { createClient } from '@supabase/supabase-js';
-import { parseISO, isAfter, startOfDay, addDays, format } from 'date-fns';
+import { parseISO, isAfter, startOfDay, addDays, format, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 const supabase = createClient(
@@ -61,19 +61,40 @@ const TeacherDashboardPage = () => {
       const pending = await getPendingBookings();
       
       // Filtrar las próximas clases confirmadas
-      const now = startOfDay(new Date());
-      const nextMonth = addDays(now, 30);
+      const today = startOfDay(new Date());
+      const nextThreeMonths = addDays(today, 90); // Extender el rango a 3 meses
+      
+      console.log('All bookings:', allBookings);
+      console.log('Today:', today);
+      console.log('Next three months:', nextThreeMonths);
       
       const upcoming = allBookings.filter(booking => {
         const bookingDate = parseISO(booking.date);
-        return isAfter(bookingDate, now) && 
-               booking.status === 'confirmed' &&
-               bookingDate <= nextMonth;
+        const isConfirmed = booking.status === 'confirmed';
+        const isInFuture = bookingDate >= today;
+        const isWithinRange = bookingDate <= nextThreeMonths;
+        
+        console.log(`Booking ${booking.id}:`, {
+          date: bookingDate,
+          status: booking.status,
+          isConfirmed,
+          isInFuture,
+          isWithinRange,
+          shouldInclude: isConfirmed && isInFuture && isWithinRange
+        });
+        
+        return isConfirmed && isInFuture && isWithinRange;
       }).sort((a, b) => {
         const dateA = parseISO(a.date);
         const dateB = parseISO(b.date);
+        if (isSameDay(dateA, dateB)) {
+          // Si es el mismo día, ordenar por hora
+          return a.startTime.localeCompare(b.startTime);
+        }
         return dateA.getTime() - dateB.getTime();
-      }).slice(0, 3); // Obtener solo las próximas 3 clases
+      }).slice(0, 6); // Mostrar hasta 6 próximas clases
+      
+      console.log('Filtered upcoming bookings:', upcoming);
       
       setPendingBookings(pending);
       setUpcomingBookings(upcoming);
