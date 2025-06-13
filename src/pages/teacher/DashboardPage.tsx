@@ -81,7 +81,7 @@ const TeacherDashboardPage = () => {
         return dateA.getTime() - dateB.getTime();
       }).slice(0, 6);
       
-      // Contar clases completadas hoy (incluyendo las recién completadas automáticamente)
+      // Contar clases completadas (incluyendo las recién completadas automáticamente)
       const todayStart = startOfDay(new Date());
       const todayEnd = endOfDay(new Date());
       
@@ -95,7 +95,7 @@ const TeacherDashboardPage = () => {
       if (completedTodayError) {
         console.error('Error fetching completed today:', completedTodayError);
       } else {
-        // Combinar las clases completadas hoy con las recién completadas
+        // Combinar las clases completadas con las recién completadas
         const totalCompletedToday = (completedTodayData?.length || 0) + completedCount;
         setCompletedTodayCount(totalCompletedToday);
       }
@@ -194,7 +194,7 @@ const TeacherDashboardPage = () => {
           prev.filter(booking => booking.id !== selectedBookingToRevert.id)
         );
         
-        // Actualizar el contador de completadas hoy
+        // Actualizar el contador de completadas
         setCompletedTodayCount(prev => Math.max(0, prev - 1));
         
         setShowRevertModal(false);
