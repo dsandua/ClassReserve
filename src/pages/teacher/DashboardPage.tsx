@@ -8,7 +8,7 @@ import { Booking } from '../../context/BookingContext';
 import BookingCard from '../../components/booking/BookingCard';
 import toast from 'react-hot-toast';
 import { createClient } from '@supabase/supabase-js';
-import { parseISO, isAfter, startOfDay, addDays, format, isSameDay } from 'date-fns';
+import { parseISO, isAfter, startOfDay, addDays, format, isSameDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 const supabase = createClient(
@@ -30,6 +30,7 @@ const TeacherDashboardPage = () => {
   const [pendingBookings, setPendingBookings] = useState<Booking[]>([]);
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
   const [recentlyCompletedBookings, setRecentlyCompletedBookings] = useState<Booking[]>([]);
+  const [completedTodayCount, setCompletedTodayCount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [studentCount, setStudentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,11 +63,7 @@ const TeacherDashboardPage = () => {
       
       // Filtrar las próximas clases confirmadas
       const today = startOfDay(new Date());
-      const nextThreeMonths = addDays(today, 90); // Extender el rango a 3 meses
-      
-      console.log('All bookings:', allBookings);
-      console.log('Today:', today);
-      console.log('Next three months:', nextThreeMonths);
+      const nextThreeMonths = addDays(today, 90);
       
       const upcoming = allBookings.filter(booking => {
         const bookingDate = parseISO(booking.date);
@@ -74,27 +71,34 @@ const TeacherDashboardPage = () => {
         const isInFuture = bookingDate >= today;
         const isWithinRange = bookingDate <= nextThreeMonths;
         
-        console.log(`Booking ${booking.id}:`, {
-          date: bookingDate,
-          status: booking.status,
-          isConfirmed,
-          isInFuture,
-          isWithinRange,
-          shouldInclude: isConfirmed && isInFuture && isWithinRange
-        });
-        
         return isConfirmed && isInFuture && isWithinRange;
       }).sort((a, b) => {
         const dateA = parseISO(a.date);
         const dateB = parseISO(b.date);
         if (isSameDay(dateA, dateB)) {
-          // Si es el mismo día, ordenar por hora
           return a.startTime.localeCompare(b.startTime);
         }
         return dateA.getTime() - dateB.getTime();
-      }).slice(0, 6); // Mostrar hasta 6 próximas clases
+      }).slice(0, 6);
       
-      console.log('Filtered upcoming bookings:', upcoming);
+      // Contar clases completadas hoy (incluyendo las recién completadas automáticamente)
+      const todayStart = startOfDay(new Date());
+      const todayEnd = endOfDay(new Date());
+      
+      const { data: completedTodayData, error: completedTodayError } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('status', 'completed')
+        .gte('updated_at', todayStart.toISOString())
+        .lte('updated_at', todayEnd.toISOString());
+      
+      if (completedTodayError) {
+        console.error('Error fetching completed today:', completedTodayError);
+      } else {
+        // Combinar las clases completadas hoy con las recién completadas
+        const totalCompletedToday = (completedTodayData?.length || 0) + completedCount;
+        setCompletedTodayCount(totalCompletedToday);
+      }
       
       setPendingBookings(pending);
       setUpcomingBookings(upcoming);
@@ -189,6 +193,9 @@ const TeacherDashboardPage = () => {
         setRecentlyCompletedBookings(prev => 
           prev.filter(booking => booking.id !== selectedBookingToRevert.id)
         );
+        
+        // Actualizar el contador de completadas hoy
+        setCompletedTodayCount(prev => Math.max(0, prev - 1));
         
         setShowRevertModal(false);
         setSelectedBookingToRevert(null);
@@ -285,7 +292,7 @@ const TeacherDashboardPage = () => {
                 <dl>
                   <dt className="text-sm font-medium text-gray-500">Completadas hoy</dt>
                   <dd>
-                    <div className="text-lg font-medium text-gray-900">{recentlyCompletedBookings.length}</div>
+                    <div className="text-lg font-medium text-gray-900">{completedTodayCount}</div>
                   </dd>
                 </dl>
               </div>
