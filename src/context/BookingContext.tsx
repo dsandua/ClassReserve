@@ -266,6 +266,7 @@ Enlace al panel: ${window.location.origin}/teacher/dashboard`
         })
         .eq('id', bookingId)
         .select('*')
+        .order('id', { ascending: true })
         .limit(1);
 
       if (updateError) throw updateError;
@@ -340,6 +341,7 @@ Accede a tu panel: ${window.location.origin}/student/dashboard`
         .update({ status: 'cancelled' })
         .eq('id', bookingId)
         .select('*')
+        .order('id', { ascending: true })
         .limit(1);
 
       if (updateError) throw updateError;
@@ -500,6 +502,7 @@ Accede a tu panel: ${window.location.origin}/student/dashboard`
         .update({ status: 'cancelled' })
         .eq('id', bookingId)
         .select('*')
+        .order('id', { ascending: true })
         .limit(1);
 
       if (updateError) throw updateError;
