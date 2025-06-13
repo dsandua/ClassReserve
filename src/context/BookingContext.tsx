@@ -1,5 +1,5 @@
 // src/context/BookingContext.tsx
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { format } from 'date-fns';
 
@@ -28,6 +28,7 @@ export type Booking = {
   meetingLink?: string;
   customMeetingLink?: string;
   notes?: string;
+  price?: number;
   createdAt: string;
 };
 
@@ -56,6 +57,7 @@ export type BlockedTime = {
 // Context Type
 type BookingContextType = {
   bookings: Booking[];
+  blockedTimes: BlockedTime[];
   getAvailableTimeSlots: (date: Date) => Promise<TimeSlot[]>;
   createBooking: (studentId: string, studentName: string, date: string, startTime: string, endTime: string) => Promise<Booking>;
   confirmBooking: (bookingId: string) => Promise<boolean>;
@@ -70,6 +72,9 @@ type BookingContextType = {
   availabilitySettings: DayAvailability[];
   updateAvailabilitySettings: (settings: DayAvailability[]) => Promise<boolean>;
   updateMeetingLink: (bookingId: string, meetingLink: string) => Promise<boolean>;
+  markCompletedBookings: () => Promise<{ completedCount: number; completedBookings: Booking[] }>;
+  revertCompletedBooking: (bookingId: string) => Promise<boolean>;
+  fetchBlockedTimes: () => Promise<void>;
 };
 
 // Context
@@ -103,6 +108,33 @@ const sendEmail = async (to: string, subject: string, body: string) => {
 export const BookingProvider = ({ children }: { children: ReactNode }) => {
   const [blockedTimes, setBlockedTimes] = useState<BlockedTime[]>([]);
   const [availabilitySettings, setAvailabilitySettings] = useState<DayAvailability[]>([]);
+
+  // Fetch blocked times on component mount
+  useEffect(() => {
+    fetchBlockedTimes();
+  }, []);
+
+  const fetchBlockedTimes = async (): Promise<void> => {
+    try {
+      const { data, error } = await supabase
+        .from('blocked_times')
+        .select('*')
+        .order('start_date');
+
+      if (error) throw error;
+
+      const formattedBlockedTimes = data.map(item => ({
+        id: item.id,
+        startDate: item.start_date,
+        endDate: item.end_date,
+        reason: item.reason
+      }));
+
+      setBlockedTimes(formattedBlockedTimes);
+    } catch (error) {
+      console.error('Error fetching blocked times:', error);
+    }
+  };
 
   const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
     const dayOfWeek = date.getDay();
@@ -218,6 +250,7 @@ Enlace al panel: ${window.location.origin}/teacher/dashboard`
       endTime: data.end_time,
       status: data.status,
       notes: data.notes,
+      price: data.price,
       createdAt: data.created_at
     };
   };
@@ -325,6 +358,143 @@ Disculpa las molestias.`
     }
   };
 
+  const markCompletedBookings = async (): Promise<{ completedCount: number; completedBookings: Booking[] }> => {
+    try {
+      const now = new Date();
+      const currentDate = format(now, 'yyyy-MM-dd');
+      const currentTime = format(now, 'HH:mm:ss');
+
+      // Fetch confirmed bookings that should be completed
+      const { data: bookingsToComplete, error: fetchError } = await supabase
+        .from('bookings')
+        .select('*, profiles(name, email)')
+        .eq('status', 'confirmed')
+        .or(`date.lt.${currentDate},and(date.eq.${currentDate},end_time.lt.${currentTime})`);
+
+      if (fetchError) throw fetchError;
+
+      if (!bookingsToComplete || bookingsToComplete.length === 0) {
+        return { completedCount: 0, completedBookings: [] };
+      }
+
+      // Update bookings to completed status
+      const bookingIds = bookingsToComplete.map(booking => booking.id);
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({ status: 'completed' })
+        .in('id', bookingIds);
+
+      if (updateError) throw updateError;
+
+      // Send notifications and emails to students
+      for (const booking of bookingsToComplete) {
+        // Create notification for student
+        await supabase
+          .from('notifications')
+          .insert([{
+            user_id: booking.student_id,
+            type: 'system',
+            title: 'Clase completada',
+            message: `Tu clase del ${booking.date} de ${booking.start_time} a ${booking.end_time} ha sido marcada como completada`,
+            link: '/student/dashboard'
+          }]);
+
+        // Send email to student
+        try {
+          await sendEmail(
+            booking.profiles.email,
+            '✅ Clase completada',
+            `¡Hola ${booking.profiles.name}!
+
+Tu clase ha sido completada exitosamente:
+
+📅 Fecha: ${booking.date}
+⏰ Horario: ${booking.start_time} - ${booking.end_time}
+
+¡Esperamos que hayas disfrutado la clase!
+
+¿Te gustaría reservar otra clase?
+Accede a tu panel: ${window.location.origin}/student/dashboard`
+          );
+        } catch (emailError) {
+          console.error('Error sending completion email:', emailError);
+        }
+      }
+
+      const completedBookings = bookingsToComplete.map(booking => ({
+        id: booking.id,
+        studentId: booking.student_id,
+        studentName: booking.profiles?.name || 'Unknown',
+        date: booking.date,
+        startTime: booking.start_time,
+        endTime: booking.end_time,
+        status: 'completed' as const,
+        meetingLink: booking.meeting_link,
+        customMeetingLink: booking.custom_meeting_link,
+        notes: booking.notes,
+        price: booking.price,
+        createdAt: booking.created_at
+      }));
+
+      return {
+        completedCount: bookingsToComplete.length,
+        completedBookings
+      };
+    } catch (error) {
+      console.error('Error marking completed bookings:', error);
+      return { completedCount: 0, completedBookings: [] };
+    }
+  };
+
+  const revertCompletedBooking = async (bookingId: string): Promise<boolean> => {
+    try {
+      const { data: booking, error } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', bookingId)
+        .select('*, profiles(name, email)')
+        .single();
+
+      if (error) throw error;
+
+      // Create notification for student
+      await supabase
+        .from('notifications')
+        .insert([{
+          user_id: booking.student_id,
+          type: 'cancellation',
+          title: 'Clase revertida',
+          message: `Tu clase completada del ${booking.date} de ${booking.start_time} a ${booking.end_time} ha sido revertida y cancelada`,
+          link: '/student/dashboard'
+        }]);
+
+      // Send email to student
+      try {
+        await sendEmail(
+          booking.profiles.email,
+          '🔄 Clase revertida',
+          `Hola ${booking.profiles.name},
+
+Tu clase completada ha sido revertida y cancelada:
+
+📅 Fecha: ${booking.date}
+⏰ Horario: ${booking.start_time} - ${booking.end_time}
+
+Si tienes dudas sobre esta acción, por favor contacta con el profesor.
+
+Accede a tu panel: ${window.location.origin}/student/dashboard`
+        );
+      } catch (emailError) {
+        console.error('Error sending revert email:', emailError);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error reverting completed booking:', error);
+      return false;
+    }
+  };
+
   const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
     const { data, error } = await supabase
       .rpc('get_my_student_class_history', { input_student_id: studentId });
@@ -343,6 +513,7 @@ Disculpa las molestias.`
       endTime: booking.end_time,
       status: booking.status,
       notes: booking.notes,
+      price: booking.price,
       createdAt: booking.created_at
     }));
   };
@@ -369,6 +540,7 @@ Disculpa las molestias.`
       meetingLink: booking.meeting_link,
       customMeetingLink: booking.custom_meeting_link,
       notes: booking.notes,
+      price: booking.price,
       createdAt: booking.created_at
     }));
   };
@@ -394,6 +566,7 @@ Disculpa las molestias.`
       endTime: booking.end_time,
       status: booking.status,
       notes: booking.notes,
+      price: booking.price,
       createdAt: booking.created_at
     }));
   };
@@ -421,6 +594,7 @@ Disculpa las molestias.`
       meetingLink: booking.meeting_link,
       customMeetingLink: booking.custom_meeting_link,
       notes: booking.notes,
+      price: booking.price,
       createdAt: booking.created_at
     }));
   };
@@ -436,6 +610,9 @@ Disculpa las molestias.`
         }]);
 
       if (error) throw error;
+      
+      // Refresh blocked times after adding new one
+      await fetchBlockedTimes();
       return true;
     } catch (error) {
       console.error('Error blocking time slot:', error);
@@ -452,6 +629,9 @@ Disculpa las molestias.`
         .lte('end_date', endDate);
 
       if (error) throw error;
+      
+      // Refresh blocked times after removing
+      await fetchBlockedTimes();
       return true;
     } catch (error) {
       console.error('Error unblocking time slot:', error);
@@ -505,6 +685,7 @@ Disculpa las molestias.`
 
   const contextValue = {
     bookings: [],
+    blockedTimes,
     getAvailableTimeSlots,
     createBooking,
     confirmBooking,
@@ -519,6 +700,9 @@ Disculpa las molestias.`
     availabilitySettings,
     updateAvailabilitySettings,
     updateMeetingLink,
+    markCompletedBookings,
+    revertCompletedBooking,
+    fetchBlockedTimes,
   };
 
   return (
