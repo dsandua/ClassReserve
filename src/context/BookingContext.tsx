@@ -229,15 +229,33 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
         'Nueva solicitud de clase',
         `¡Hola ${teacherData.name}!
         
-Tienes una nueva solicitud de clase:
+📚 NUEVA SOLICITUD DE CLASE
 
-📅 Estudiante: ${studentName}
+👤 Estudiante: ${studentName}
 📅 Fecha: ${date}
 ⏰ Horario: ${startTime} - ${endTime}
+💰 Precio: €${(data.price || 25.00).toFixed(2)}
+📝 Estado: Pendiente de confirmación
 
-Por favor, revisa tu panel de control para confirmar o rechazar la solicitud.
+📋 DETALLES DE LA RESERVA:
+• ID de reserva: ${data.id}
+• Fecha de solicitud: ${new Date(data.created_at).toLocaleDateString('es-ES')}
+• Duración: 1 hora
 
-Enlace al panel: ${window.location.origin}/teacher/dashboard`
+🎯 PRÓXIMOS PASOS:
+1. Revisa tu panel de control para confirmar o rechazar la solicitud
+2. Una vez confirmada, se generará automáticamente un enlace de videollamada
+3. El estudiante recibirá una notificación con todos los detalles
+
+⚠️ IMPORTANTE:
+• La solicitud está pendiente de tu confirmación
+• El estudiante recibirá una notificación cuando tomes una decisión
+• Puedes gestionar todas tus reservas desde el panel de control
+
+🔗 Accede a tu panel de control:
+${window.location.origin}/teacher/dashboard
+
+¡Gracias por usar ClassReserve!`
       );
     }
 
