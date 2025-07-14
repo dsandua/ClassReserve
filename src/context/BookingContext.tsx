@@ -242,35 +242,6 @@ await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
       dashboardUrl:  `${window.location.origin}/teacher/dashboard`
     })
   });
-        
-📚 NUEVA SOLICITUD DE CLASE
-
-👤 Estudiante: ${studentName}
-📅 Fecha: ${date}
-⏰ Horario: ${startTime} - ${endTime}
-💰 Precio: €${(data.price || 25.00).toFixed(2)}
-📝 Estado: Pendiente de confirmación
-
-📋 DETALLES DE LA RESERVA:
-• ID de reserva: ${data.id}
-• Fecha de solicitud: ${new Date(data.created_at).toLocaleDateString('es-ES')}
-• Duración: 1 hora
-
-🎯 PRÓXIMOS PASOS:
-1. Revisa tu panel de control para confirmar o rechazar la solicitud
-2. Una vez confirmada, se generará automáticamente un enlace de videollamada
-3. El estudiante recibirá una notificación con todos los detalles
-
-⚠️ IMPORTANTE:
-• La solicitud está pendiente de tu confirmación
-• El estudiante recibirá una notificación cuando tomes una decisión
-• Puedes gestionar todas tus reservas desde el panel de control
-
-🔗 Accede a tu panel de control:
-${window.location.origin}/teacher/dashboard
-
-¡Gracias por usar ClassReserve!`
-      );
     }
 
     return {
