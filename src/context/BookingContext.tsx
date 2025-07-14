@@ -224,24 +224,19 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
         }]);
 
       // Enviar email al profesor (no bloquear si falla)
-await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-    },
-    body: JSON.stringify({
-      to:            teacherData.email,
-      subject:       '🎓 Nueva solicitud de clase',
-      teacherName:   teacherData.name,
-      studentName:   studentName,
-      date:          date,
-      timeSlot:      `${startTime} – ${endTime}`,
-      price:         ((data.price ?? 25)).toString(),
-      reservationId: data.id,
-      dashboardUrl:  `${window.location.origin}/teacher/dashboard`
-    })
-  });
+await supabase.functions.invoke('send-email', {
+  body: {
+    to:            teacherData.email,
+    subject:       '🎓 Nueva solicitud de clase',
+    teacherName:   teacherData.name,
+    studentName,
+    date,
+    timeSlot:      `${startTime} – ${endTime}`,
+    price:         ((data.price ?? 25)).toString(),
+    reservationId: data.id,
+    dashboardUrl:  `${window.location.origin}/teacher/dashboard`
+  }
+});
     }
 
     return {
