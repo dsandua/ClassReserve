@@ -358,6 +358,52 @@ Accede a tu panel: ${window.location.origin}/student/dashboard`
         return true; // Still return true as the booking was updated successfully
       }
 
+      // Buscar el profesor dinámicamente
+      const { data: teacherData, error: teacherError } = await supabase
+        .from('profiles')
+        .select('id, email, name')
+        .eq('role', 'teacher')
+        .single();
+
+      if (!teacherError && teacherData) {
+        // Crear notificación para el profesor
+        await supabase
+          .from('notifications')
+          .insert([{
+            user_id: teacherData.id,
+            type: 'cancellation',
+            title: 'Clase cancelada',
+            message: `${studentProfile.name} ha cancelado su clase del ${updatedBooking.date} de ${updatedBooking.start_time} a ${updatedBooking.end_time}`,
+            link: '/teacher/dashboard'
+          }]);
+
+        // Enviar email al profesor (no bloquear si falla)
+        await sendEmail(
+          teacherData.email,
+          '❌ Clase cancelada por el estudiante',
+          `Hola ${teacherData.name},
+
+Te informamos que ${studentProfile.name} ha cancelado su clase:
+
+📅 Fecha: ${updatedBooking.date}
+⏰ Horario: ${updatedBooking.start_time} - ${updatedBooking.end_time}
+👤 Estudiante: ${studentProfile.name}
+📧 Email: ${studentProfile.email}
+🆔 ID de reserva: ${updatedBooking.id}
+
+📋 Detalles de la cancelación:
+• La clase ha sido cancelada por el estudiante
+• El horario queda ahora disponible para nuevas reservas
+• No se requiere ninguna acción por tu parte
+
+💡 Información adicional:
+• Puedes ver el estado actualizado en tu panel de control
+• El estudiante puede hacer una nueva reserva cuando lo desee
+• Si tienes dudas, puedes contactar directamente con el estudiante
+
+Accede a tu panel: ${window.location.origin}/teacher/dashboard`
+        );
+      }
       // Crear notificación para el estudiante
       await supabase
         .from('notifications')
