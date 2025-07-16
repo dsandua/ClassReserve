@@ -80,7 +80,6 @@ type BookingContextType = {
 // Context
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
 
-// Email function
 // Email function simplificada
 const sendEmail = (to: string, subject: string, body: string) => {
   return supabase.functions.invoke('send-email', {
