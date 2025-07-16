@@ -443,6 +443,12 @@ await supabase.functions.invoke('send-email', {
   }
 });
 
+      return true;
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      return false;
+    }
+  };
 
   const markCompletedBookings = async (): Promise<{ completedCount: number; completedBookings: Booking[] }> => {
     try {
