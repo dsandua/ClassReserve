@@ -224,19 +224,37 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
         }]);
 
       // Enviar email al profesor (no bloquear si falla)
+// ——— Reemplaza todo el bloque anterior por esto ———
+// Monta el HTML con tus datos:
+const htmlContent = `
+  <h1>🎓 Nueva solicitud de clase</h1>
+  <p>Hola ${teacherData.name},</p>
+  <p>Has recibido una nueva solicitud de clase:</p>
+  <ul>
+    <li><strong>Estudiante:</strong> ${studentName}</li>
+    <li><strong>Fecha:</strong> ${date}</li>
+    <li><strong>Horario:</strong> ${startTime} – ${endTime}</li>
+    <li><strong>Precio:</strong> €${(data.price ?? 25).toFixed(2)}</li>
+    <li><strong>ID reserva:</strong> ${data.id}</li>
+  </ul>
+  <p>
+    <a href="${window.location.origin}/teacher/dashboard">
+      👉 Ir al panel de control
+    </a>
+  </p>
+  <p>¡Gracias por usar ClassReserve! 🚀</p>
+`;
+
+// Llama a la función edge PASANDO SOLO to, subject y body:
 await supabase.functions.invoke('send-email', {
   body: {
-    to:            teacherData.email,
-    subject:       '🎓 Nueva solicitud de clase',
-    teacherName:   teacherData.name,
-    studentName,
-    date,
-    timeSlot:      `${startTime} – ${endTime}`,
-    price:         ((data.price ?? 25)).toString(),
-    reservationId: data.id,
-    dashboardUrl:  `${window.location.origin}/teacher/dashboard`
+    to:      teacherData.email,
+    subject: '🎓 Nueva solicitud de clase',
+    body:    htmlContent
   }
 });
+// ——————————————————————————————————————————————
+
     }
 
     return {
