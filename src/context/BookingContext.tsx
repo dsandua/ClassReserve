@@ -226,7 +226,7 @@ const htmlContent = `
 `;
 
 // Llama a la función edge PASANDO SOLO to, subject y body:
-a// ——— Enviar email al profesor ———
+// ——— Enviar email al profesor ———
 const htmlProf = `
   <h1>🎓 Nueva solicitud de clase</h1>
   <p>Hola ${teacherData.name},</p>
