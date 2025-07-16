@@ -81,32 +81,13 @@ type BookingContextType = {
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
 
 // Email function
-const sendEmail = async (to: string, subject: string, body: string) => {
-  try {
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ to, subject, body }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      console.warn('Email sending failed:', error.error || 'Unknown error');
-      // Don't throw error, just log it to prevent breaking the booking flow
-      return { success: false, error: error.error };
-    }
-
-    const result = await response.json();
-    return { success: true, data: result };
-  } catch (error) {
-    console.warn('Error sending email:', error);
-    // Don't throw error, just log it to prevent breaking the booking flow
-    return { success: false, error: error.message };
-  }
+// Email function simplificada
+const sendEmail = (to: string, subject: string, body: string) => {
+  return supabase.functions.invoke('send-email', {
+    body: { to, subject, body }
+  });
 };
+
 
 // Provider
 export const BookingProvider = ({ children }: { children: ReactNode }) => {
