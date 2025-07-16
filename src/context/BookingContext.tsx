@@ -422,7 +422,7 @@ await supabase.functions.invoke('send-email', {
 });
 // —————————————————————————————
 
-      }
+  }
       // Crear notificación para el estudiante
 const studentCancelHtml = `
   <h1>❌ Tu clase ha sido cancelada</h1>
