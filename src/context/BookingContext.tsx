@@ -206,7 +206,8 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
       // Enviar email al profesor (no bloquear si falla)
 // ——— Reemplaza todo el bloque anterior por esto ———
 // Monta el HTML con tus datos:
-const htmlContent = `
+// — Enviar email al profesor —
+const htmlProf = `
   <h1>🎓 Nueva solicitud de clase</h1>
   <p>Hola ${teacherData.name},</p>
   <p>Has recibido una nueva solicitud de clase:</p>
@@ -225,30 +226,13 @@ const htmlContent = `
   <p>¡Gracias por usar ClassReserve! 🚀</p>
 `;
 
-// Llama a la función edge PASANDO SOLO to, subject y body:
-// ——— Enviar email al profesor ———
-const htmlProf = `
-  <h1>🎓 Nueva solicitud de clase</h1>
-  <p>Hola ${teacherData.name},</p>
-  <p>Has recibido una nueva solicitud de clase:</p>
-  <ul>
-    <li><strong>Estudiante:</strong> ${studentName}</li>
-    <li><strong>Fecha:</strong> ${date}</li>
-    <li><strong>Horario:</strong> ${startTime} – ${endTime}</li>
-    <li><strong>Precio:</strong> €${(data.price ?? 25).toFixed(2)}</li>
-    <li><strong>ID reserva:</strong> ${data.id}</li>
-  </ul>
-  <p><a href="${window.location.origin}/teacher/dashboard">
-    👉 Ir al Panel del Profesor
-  </a></p>
-  <p>¡Gracias por usar ClassReserve! 🚀</p>
-`;
-
 await sendEmail(
   teacherData.email,
   '🎓 Nueva solicitud de clase',
   htmlProf
 );
+// ————————————————————————
+
     }
 
     return {
