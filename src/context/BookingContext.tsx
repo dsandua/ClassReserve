@@ -396,31 +396,32 @@ Accede a tu panel: ${window.location.origin}/student/dashboard`
           }]);
 
         // Enviar email al profesor (no bloquear si falla)
-        await sendEmail(
-          teacherData.email,
-          '❌ Clase cancelada por el estudiante',
-          `Hola ${teacherData.name},
+// ——— Reemplaza ese bloque por esto ———
+const cancelHtml = `
+  <h1>❌ Clase cancelada por el estudiante</h1>
+  <p>Hola ${teacherData.name},</p>
+  <p>El estudiante <strong>${studentProfile.name}</strong> ha cancelado su clase:</p>
+  <ul>
+    <li><strong>Fecha:</strong> ${updatedBooking.date}</li>
+    <li><strong>Horario:</strong> ${updatedBooking.start_time} – ${updatedBooking.end_time}</li>
+    <li><strong>ID reserva:</strong> ${updatedBooking.id}</li>
+  </ul>
+  <p>
+    <a href="${window.location.origin}/teacher/dashboard">
+      👉 Ver en mi panel
+    </a>
+  </p>
+`;
 
-Te informamos que ${studentProfile.name} ha cancelado su clase:
+await supabase.functions.invoke('send-email', {
+  body: {
+    to:      teacherData.email,
+    subject: '❌ Clase cancelada por el estudiante',
+    body:    cancelHtml
+  }
+});
+// —————————————————————————————
 
-📅 Fecha: ${updatedBooking.date}
-⏰ Horario: ${updatedBooking.start_time} - ${updatedBooking.end_time}
-👤 Estudiante: ${studentProfile.name}
-📧 Email: ${studentProfile.email}
-🆔 ID de reserva: ${updatedBooking.id}
-
-📋 Detalles de la cancelación:
-• La clase ha sido cancelada por el estudiante
-• El horario queda ahora disponible para nuevas reservas
-• No se requiere ninguna acción por tu parte
-
-💡 Información adicional:
-• Puedes ver el estado actualizado en tu panel de control
-• El estudiante puede hacer una nueva reserva cuando lo desee
-• Si tienes dudas, puedes contactar directamente con el estudiante
-
-Accede a tu panel: ${window.location.origin}/teacher/dashboard`
-        );
       }
       // Crear notificación para el estudiante
       await supabase
