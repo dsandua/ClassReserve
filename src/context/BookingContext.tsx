@@ -424,42 +424,25 @@ await supabase.functions.invoke('send-email', {
 
       }
       // Crear notificación para el estudiante
-      await supabase
-        .from('notifications')
-        .insert([{
-          user_id: updatedBooking.student_id,
-          type: 'cancellation',
-          title: 'Clase cancelada',
-          message: `Tu clase para el ${updatedBooking.date} de ${updatedBooking.start_time} a ${updatedBooking.end_time} ha sido cancelada`,
-          link: '/student/dashboard'
-        }]);
+const studentCancelHtml = `
+  <h1>❌ Tu clase ha sido cancelada</h1>
+  <p>Hola ${studentProfile.name},</p>
+  <p>Tu clase del <strong>${updatedBooking.date}</strong> a las <strong>${updatedBooking.start_time}</strong> ha sido cancelada.</p>
+  <p>
+    <a href="${window.location.origin}/student/dashboard">
+      👉 Reservar nueva clase
+    </a>
+  </p>
+`;
 
-      // Enviar email al estudiante (no bloquear si falla)
-      await sendEmail(
-        studentProfile.email,
-        '❌ Clase cancelada',
-        `Hola ${studentProfile.name},
+await supabase.functions.invoke('send-email', {
+  body: {
+    to:      studentProfile.email,
+    subject: '❌ Clase cancelada',
+    body:    studentCancelHtml
+  }
+});
 
-Lamentamos informarte que tu clase ha sido cancelada:
-
-📅 Fecha: ${updatedBooking.date}
-⏰ Horario: ${updatedBooking.start_time} - ${updatedBooking.end_time}
-
-¿Qué puedes hacer ahora?
-• Reservar una nueva clase en otro horario disponible
-• Contactar con el profesor si tienes dudas
-
-Reservar nueva clase: ${window.location.origin}/student/dashboard
-
-Disculpa las molestias.`
-      );
-
-      return true;
-    } catch (error) {
-      console.error('Error cancelling booking:', error);
-      return false;
-    }
-  };
 
   const markCompletedBookings = async (): Promise<{ completedCount: number; completedBookings: Booking[] }> => {
     try {
