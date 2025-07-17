@@ -354,42 +354,59 @@ Accede a tu panel: ${window.location.origin}/student/dashboard`
         return true; // Still return true as the booking was updated successfully
       }
 
-      // Buscar el profesor dinámicamente
-      const { data: teacherData, error: teacherError } = await supabase
-        .from('profiles')
-        .select('id, email, name')
-        .eq('role', 'teacher')
-        .single();
+// ——— REEMPLAZO: nuevo bloque de notificaciones y emails ———
+// 1) Notificación + email al profesor
+const { data: teacherData, error: teacherError } = await supabase
+  .from('profiles')
+  .select('id, email, name')
+  .eq('role', 'teacher')
+  .single();
 
-      if (!teacherError && teacherData) {
-        // Crear notificación para el profesor
-        await supabase
-          .from('notifications')
-          .insert([{
-            user_id: teacherData.id,
-            type: 'cancellation',
-            title: 'Clase cancelada',
-            message: `${studentProfile.name} ha cancelado su clase del ${updatedBooking.date} de ${updatedBooking.start_time} a ${updatedBooking.end_time}`,
-            link: '/teacher/dashboard'
-          }]);
+if (!teacherError && teacherData) {
+  await supabase
+    .from('notifications')
+    .insert([{
+      user_id: teacherData.id,
+      type: 'cancellation',
+      title: 'Clase cancelada',
+      message: `${studentProfile.name} ha cancelado su clase del ${updatedBooking.date} de ${updatedBooking.startTime} a ${updatedBooking.endTime}`,
+      link: '/teacher/dashboard'
+    }]);
 
-        // Enviar email al profesor (no bloquear si falla)
-// ——— Reemplaza ese bloque por esto ———
-const cancelHtml = `
-  <h1>❌ Clase cancelada por el estudiante</h1>
-  <p>Hola ${teacherData.name},</p>
-  <p>El estudiante <strong>${studentProfile.name}</strong> ha cancelado su clase:</p>
-  <ul>
-    <li><strong>Fecha:</strong> ${updatedBooking.date}</li>
-    <li><strong>Horario:</strong> ${updatedBooking.start_time} – ${updatedBooking.end_time}</li>
-    <li><strong>ID reserva:</strong> ${updatedBooking.id}</li>
-  </ul>
-  <p>
-    <a href="${window.location.origin}/teacher/dashboard">
-      👉 Ver en mi panel
-    </a>
-  </p>
+  const htmlCancelProf = `
+    <h1>❌ Clase cancelada por el estudiante</h1>
+    <p>Hola ${teacherData.name},</p>
+    <p>El estudiante <strong>${studentProfile.name}</strong> ha cancelado su clase:</p>
+    <ul>
+      <li><strong>Fecha:</strong> ${updatedBooking.date}</li>
+      <li><strong>Horario:</strong> ${updatedBooking.startTime} – ${updatedBooking.endTime}</li>
+      <li><strong>ID reserva:</strong> ${updatedBooking.id}</li>
+    </ul>
+    <p><a href="${window.location.origin}/teacher/dashboard">👉 Ver en mi panel</a></p>
+  `;
+  await sendEmail(
+    teacherData.email,
+    '❌ Clase cancelada por el estudiante',
+    htmlCancelProf
+  );
+}
+
+// 2) Email al estudiante
+const htmlCancelStudent = `
+  <h1>❌ Tu clase ha sido cancelada</h1>
+  <p>Hola ${studentProfile.name},</p>
+  <p>Tu clase del <strong>${updatedBooking.date}</strong> a las <strong>${updatedBooking.startTime}</strong> ha sido cancelada.</p>
+  <p><a href="${window.location.origin}/student/dashboard">👉 Reservar nueva clase</a></p>
 `;
+await sendEmail(
+  studentProfile.email,
+  '❌ Clase cancelada',
+  htmlCancelStudent
+);
+
+return true;
+// ——— FIN REEMPLAZO ———
+
 
 await supabase.functions.invoke('send-email', {
   body: {
