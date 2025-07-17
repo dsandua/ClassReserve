@@ -223,7 +223,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
             user_id: teacherData.id,
             type: 'booking',
             title: 'Nueva solicitud de clase',
-            message: `${studentName} ha solicitado una clase para el ${date} de ${startTime} a ${endTime}`,
+            message: `${studentName} ha solicitado una clase para el ${format(new Date(date), 'dd/MM/yyyy')} de ${startTime} a ${endTime}`,
             link: '/teacher/dashboard'
           }]);
 
@@ -304,7 +304,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
           user_id: booking.student_id,
           type: 'booking',
           title: 'Clase confirmada',
-          message: `Tu clase para el ${booking.date} de ${booking.start_time} a ${booking.end_time} ha sido confirmada`,
+          message: `Tu clase para el ${format(new Date(booking.date), 'dd/MM/yyyy')} de ${booking.start_time} a ${booking.end_time} ha sido confirmada`,
           link: '/student/dashboard'
         }]);
 
@@ -314,7 +314,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
         <p>¡Hola ${studentProfile.name}!</p>
         <p>Tu clase ha sido confirmada:</p>
         <ul>
-          <li><strong>Fecha:</strong> ${booking.date}</li>
+          <li><strong>Fecha:</strong> ${format(new Date(booking.date), 'dd/MM/yyyy')}</li>
           <li><strong>Horario:</strong> ${booking.start_time} - ${booking.end_time}</li>
           <li><strong>Enlace de videollamada:</strong> <a href="${booking.meeting_link}">${booking.meeting_link}</a></li>
         </ul>
@@ -380,7 +380,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
             user_id: teacherData.id,
             type: 'cancellation',
             title: 'Clase cancelada',
-            message: `${studentProfile.name} ha cancelado su clase del ${booking.date} de ${booking.start_time} a ${booking.end_time}`,
+            message: `${studentProfile.name} ha cancelado su clase del ${format(new Date(booking.date), 'dd/MM/yyyy')} de ${booking.start_time} a ${booking.end_time}`,
             link: '/teacher/dashboard'
           }]);
 
@@ -390,9 +390,8 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
           <p>Hola ${teacherData.name},</p>
           <p>El estudiante <strong>${studentProfile.name}</strong> ha cancelado su clase:</p>
           <ul>
-            <li><strong>Fecha:</strong> ${booking.date}</li>
+            <li><strong>Fecha:</strong> ${format(new Date(booking.date), 'dd/MM/yyyy')}</li>
             <li><strong>Horario:</strong> ${booking.start_time} – ${booking.end_time}</li>
-            <li><strong>ID reserva:</strong> ${booking.id}</li>
           </ul>
           <p>El horario queda disponible para nuevas reservas.</p>
           <p><a href="${window.location.origin}/teacher/dashboard">👉 Ver en mi panel</a></p>
@@ -409,7 +408,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
       const studentEmailBody = `
         <h1>❌ Tu clase ha sido cancelada</h1>
         <p>Hola ${studentProfile.name},</p>
-        <p>Tu clase del <strong>${booking.date}</strong> a las <strong>${booking.start_time}</strong> ha sido cancelada.</p>
+        <p>Tu clase del <strong>${format(new Date(booking.date), 'dd/MM/yyyy')}</strong> a las <strong>${booking.start_time}</strong> ha sido cancelada.</p>
         <p><a href="${window.location.origin}/student/dashboard">👉 Reservar nueva clase</a></p>
       `;
 
@@ -463,7 +462,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
             user_id: booking.student_id,
             type: 'system',
             title: 'Clase completada',
-            message: `Tu clase del ${booking.date} de ${booking.start_time} a ${booking.end_time} ha sido marcada como completada`,
+            message: `Tu clase del ${format(new Date(booking.date), 'dd/MM/yyyy')} de ${booking.start_time} a ${booking.end_time} ha sido marcada como completada`,
             link: '/student/dashboard'
           }]);
 
@@ -473,7 +472,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
           <p>¡Hola ${booking.profiles.name}!</p>
           <p>Tu clase ha sido completada exitosamente:</p>
           <ul>
-            <li><strong>Fecha:</strong> ${booking.date}</li>
+            <li><strong>Fecha:</strong> ${format(new Date(booking.date), 'dd/MM/yyyy')}</li>
             <li><strong>Horario:</strong> ${booking.start_time} - ${booking.end_time}</li>
           </ul>
           <p>¡Esperamos que hayas disfrutado la clase!</p>
@@ -544,7 +543,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
           user_id: booking.student_id,
           type: 'cancellation',
           title: 'Clase revertida',
-          message: `Tu clase completada del ${booking.date} de ${booking.start_time} a ${booking.end_time} ha sido revertida y cancelada`,
+          message: `Tu clase completada del <strong>${format(new Date(booking.date), 'dd/MM/yyyy')}</strong> de ${booking.start_time} a ${booking.end_time} ha sido revertida y cancelada`,
           link: '/student/dashboard'
         }]);
 
@@ -554,7 +553,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
         <p>Hola ${studentProfile.name},</p>
         <p>Tu clase completada ha sido revertida y cancelada:</p>
         <ul>
-          <li><strong>Fecha:</strong> ${booking.date}</li>
+          <li><strong>Fecha:</strong> ${format(new Date(booking.date), 'dd/MM/yyyy')}</li>
           <li><strong>Horario:</strong> ${booking.start_time} - ${booking.end_time}</li>
         </ul>
         <p>Si tienes dudas sobre esta acción, por favor contacta con el profesor.</p>
