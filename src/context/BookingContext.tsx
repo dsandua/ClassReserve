@@ -234,10 +234,8 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
           <p>Has recibido una nueva solicitud de clase:</p>
           <ul>
             <li><strong>Estudiante:</strong> ${studentName}</li>
-            <li><strong>Fecha:</strong> ${date}</li>
+            <li><strong>Fecha:</strong> ${format(new Date(date), 'dd/MM/yyyy')}</li>
             <li><strong>Horario:</strong> ${startTime} – ${endTime}</li>
-            <li><strong>Precio:</strong> €${price.toFixed(2)}</li>
-            <li><strong>ID reserva:</strong> ${data.id}</li>
           </ul>
           <p>
             <a href="${window.location.origin}/teacher/dashboard">
