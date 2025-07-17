@@ -80,13 +80,23 @@ type BookingContextType = {
 // Context
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
 
-// Email function simplificada
-const sendEmail = (to: string, subject: string, body: string) => {
-  return supabase.functions.invoke('send-email', {
-    body: { to, subject, body }
-  });
+// Email function
+const sendEmail = async (to: string, subject: string, body: string) => {
+  try {
+    const response = await supabase.functions.invoke('send-email', {
+      body: { to, subject, body }
+    });
+    
+    if (response.error) {
+      console.error('Error sending email:', response.error);
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('Email function error:', error);
+    return { error };
+  }
 };
-
 
 // Provider
 export const BookingProvider = ({ children }: { children: ReactNode }) => {
@@ -121,43 +131,48 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
-    const dayOfWeek = date.getDay();
-    
-    const { data: availabilityData } = await supabase
-      .from('availability')
-      .select('*')
-      .eq('day_of_week', dayOfWeek);
-    
-    const dayAvailability = availabilityData?.[0];
-    
-    if (!dayAvailability || !dayAvailability.is_available) {
-      return [];
-    }
-    
-    const isDateBlocked = isTimeBlocked(date);
-    if (isDateBlocked) {
-      return [];
-    }
-    
-    const { data: bookings } = await supabase
-      .from('bookings')
-      .select('*')
-      .eq('date', format(date, 'yyyy-MM-dd'))
-      .neq('status', 'cancelled');
-    
-    return dayAvailability.slots?.map((slot: any) => {
-      const isBooked = bookings?.some(booking => 
-        booking.start_time === slot.startTime && booking.end_time === slot.endTime
-      );
+    try {
+      const dayOfWeek = date.getDay();
       
-      return {
-        id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
-        date: format(date, 'yyyy-MM-dd'),
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        isAvailable: !isBooked,
-      };
-    }) || [];
+      const { data: availabilityData } = await supabase
+        .from('availability')
+        .select('*')
+        .eq('day_of_week', dayOfWeek);
+      
+      const dayAvailability = availabilityData?.[0];
+      
+      if (!dayAvailability || !dayAvailability.is_available) {
+        return [];
+      }
+      
+      const isDateBlocked = isTimeBlocked(date);
+      if (isDateBlocked) {
+        return [];
+      }
+      
+      const { data: bookings } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('date', format(date, 'yyyy-MM-dd'))
+        .neq('status', 'cancelled');
+      
+      return dayAvailability.slots?.map((slot: any) => {
+        const isBooked = bookings?.some(booking => 
+          booking.start_time === slot.startTime && booking.end_time === slot.endTime
+        );
+        
+        return {
+          id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
+          date: format(date, 'yyyy-MM-dd'),
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          isAvailable: !isBooked,
+        };
+      }) || [];
+    } catch (error) {
+      console.error('Error getting available time slots:', error);
+      return [];
+    }
   };
 
   const createBooking = async (
@@ -167,91 +182,99 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     startTime: string,
     endTime: string
   ): Promise<Booking> => {
-    const { data, error } = await supabase
-      .from('bookings')
-      .insert([{
-        student_id: studentId,
-        date,
-        start_time: startTime,
-        end_time: endTime,
-        status: 'pending',
-        created_at: new Date().toISOString()
-      }])
-      .select()
-      .single();
+    try {
+      // Get student's price
+      const { data: studentData } = await supabase
+        .from('profiles')
+        .select('price')
+        .eq('id', studentId)
+        .single();
 
-    if (error) throw error;
+      const price = studentData?.price || 25.00;
 
-    // Buscar el profesor dinámicamente
-    const { data: teacherData, error: teacherError } = await supabase
-      .from('profiles')
-      .select('id, email, name')
-      .eq('role', 'teacher')
-      .single();
-
-    if (teacherError) {
-      console.error('Error finding teacher:', teacherError);
-    } else {
-      // Crear notificación para el profesor
-      await supabase
-        .from('notifications')
+      const { data, error } = await supabase
+        .from('bookings')
         .insert([{
-          user_id: teacherData.id,
-          type: 'booking',
-          title: 'Nueva solicitud de clase',
-          message: `${studentName} ha solicitado una clase para el ${date} de ${startTime} a ${endTime}`,
-          link: '/teacher/dashboard'
-        }]);
+          student_id: studentId,
+          date,
+          start_time: startTime,
+          end_time: endTime,
+          status: 'pending',
+          price: price,
+          created_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
 
-      // Enviar email al profesor (no bloquear si falla)
-// ——— Reemplaza todo el bloque anterior por esto ———
-// Monta el HTML con tus datos:
-// — Enviar email al profesor —
-const htmlProf = `
-  <h1>🎓 Nueva solicitud de clase</h1>
-  <p>Hola ${teacherData.name},</p>
-  <p>Has recibido una nueva solicitud de clase:</p>
-  <ul>
-    <li><strong>Estudiante:</strong> ${studentName}</li>
-    <li><strong>Fecha:</strong> ${date}</li>
-    <li><strong>Horario:</strong> ${startTime} – ${endTime}</li>
-    <li><strong>Precio:</strong> €${(data.price ?? 25).toFixed(2)}</li>
-    <li><strong>ID reserva:</strong> ${data.id}</li>
-  </ul>
-  <p>
-    <a href="${window.location.origin}/teacher/dashboard">
-      👉 Ir al panel de control
-    </a>
-  </p>
-  <p>¡Gracias por usar ClassReserve! 🚀</p>
-`;
+      if (error) throw error;
 
-await sendEmail(
-  teacherData.email,
-  '🎓 Nueva solicitud de clase',
-  htmlProf
-);
-// ————————————————————————
+      // Find teacher and send notification/email
+      const { data: teacherData, error: teacherError } = await supabase
+        .from('profiles')
+        .select('id, email, name')
+        .eq('role', 'teacher')
+        .single();
 
+      if (!teacherError && teacherData) {
+        // Create notification for teacher
+        await supabase
+          .from('notifications')
+          .insert([{
+            user_id: teacherData.id,
+            type: 'booking',
+            title: 'Nueva solicitud de clase',
+            message: `${studentName} ha solicitado una clase para el ${date} de ${startTime} a ${endTime}`,
+            link: '/teacher/dashboard'
+          }]);
+
+        // Send email to teacher
+        const emailBody = `
+          <h1>🎓 Nueva solicitud de clase</h1>
+          <p>Hola ${teacherData.name},</p>
+          <p>Has recibido una nueva solicitud de clase:</p>
+          <ul>
+            <li><strong>Estudiante:</strong> ${studentName}</li>
+            <li><strong>Fecha:</strong> ${date}</li>
+            <li><strong>Horario:</strong> ${startTime} – ${endTime}</li>
+            <li><strong>Precio:</strong> €${price.toFixed(2)}</li>
+            <li><strong>ID reserva:</strong> ${data.id}</li>
+          </ul>
+          <p>
+            <a href="${window.location.origin}/teacher/dashboard">
+              👉 Ir al panel de control
+            </a>
+          </p>
+          <p>¡Gracias por usar ClassReserve! 🚀</p>
+        `;
+
+        await sendEmail(
+          teacherData.email,
+          '🎓 Nueva solicitud de clase',
+          emailBody
+        );
+      }
+
+      return {
+        id: data.id,
+        studentId: data.student_id,
+        studentName,
+        date: data.date,
+        startTime: data.start_time,
+        endTime: data.end_time,
+        status: data.status,
+        notes: data.notes,
+        price: data.price,
+        createdAt: data.created_at
+      };
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      throw error;
     }
-
-    return {
-      id: data.id,
-      studentId: data.student_id,
-      studentName,
-      date: data.date,
-      startTime: data.start_time,
-      endTime: data.end_time,
-      status: data.status,
-      notes: data.notes,
-      price: data.price,
-      createdAt: data.created_at
-    };
   };
 
   const confirmBooking = async (bookingId: string): Promise<boolean> => {
     try { 
-      // First, update the booking
+      // Update the booking
       const { data: booking, error: updateError } = await supabase
         .from('bookings')
         .update({
@@ -260,60 +283,57 @@ await sendEmail(
         })
         .eq('id', bookingId)
         .select('*')
-        .order('id', { ascending: true })
-        .limit(1);
+        .single();
 
       if (updateError) throw updateError;
 
-      if (!booking || booking.length === 0) {
-        throw new Error('Booking not found or could not be updated');
-      }
-
-      const updatedBooking = booking[0];
-
-      // Then, fetch the student's profile separately
+      // Get student profile
       const { data: studentProfile, error: profileError } = await supabase
         .from('profiles')
         .select('name, email')
-        .eq('id', updatedBooking.student_id)
+        .eq('id', booking.student_id)
         .single();
 
       if (profileError) {
         console.error('Error fetching student profile:', profileError);
-        return true; // Still return true as the booking was updated successfully
+        return true;
       }
 
-      // Crear notificación para el estudiante
+      // Create notification for student
       await supabase
         .from('notifications')
         .insert([{
-          user_id: updatedBooking.student_id,
+          user_id: booking.student_id,
           type: 'booking',
           title: 'Clase confirmada',
-          message: `Tu clase para el ${updatedBooking.date} de ${updatedBooking.start_time} a ${updatedBooking.end_time} ha sido confirmada`,
+          message: `Tu clase para el ${booking.date} de ${booking.start_time} a ${booking.end_time} ha sido confirmada`,
           link: '/student/dashboard'
         }]);
 
-      // Enviar email al estudiante (no bloquear si falla)
+      // Send email to student
+      const emailBody = `
+        <h1>✅ Clase confirmada</h1>
+        <p>¡Hola ${studentProfile.name}!</p>
+        <p>Tu clase ha sido confirmada:</p>
+        <ul>
+          <li><strong>Fecha:</strong> ${booking.date}</li>
+          <li><strong>Horario:</strong> ${booking.start_time} - ${booking.end_time}</li>
+          <li><strong>Enlace de videollamada:</strong> <a href="${booking.meeting_link}">${booking.meeting_link}</a></li>
+        </ul>
+        <p><strong>📝 Consejos para la clase:</strong></p>
+        <ul>
+          <li>Conéctate 5 minutos antes</li>
+          <li>Asegúrate de tener buena conexión a internet</li>
+          <li>Ten preparados tus materiales de estudio</li>
+        </ul>
+        <p>¡Te esperamos!</p>
+        <p><a href="${window.location.origin}/student/dashboard">Accede a tu panel</a></p>
+      `;
+
       await sendEmail(
         studentProfile.email,
         '✅ Clase confirmada',
-        `¡Hola ${studentProfile.name}!
-
-Tu clase ha sido confirmada:
-
-📅 Fecha: ${updatedBooking.date}
-⏰ Horario: ${updatedBooking.start_time} - ${updatedBooking.end_time}
-🎥 Enlace de videollamada: ${updatedBooking.meeting_link}
-
-📝 Consejos para la clase:
-• Conéctate 5 minutos antes
-• Asegúrate de tener buena conexión a internet
-• Ten preparados tus materiales de estudio
-
-¡Te esperamos!
-
-Accede a tu panel: ${window.location.origin}/student/dashboard`
+        emailBody
       );
 
       return true;
@@ -325,118 +345,81 @@ Accede a tu panel: ${window.location.origin}/student/dashboard`
 
   const cancelBooking = async (bookingId: string): Promise<boolean> => {
     try {
-      // First, update the booking
+      // Update the booking
       const { data: booking, error: updateError } = await supabase
         .from('bookings')
         .update({ status: 'cancelled' })
         .eq('id', bookingId)
         .select('*')
-        .order('id', { ascending: true })
-        .limit(1);
+        .single();
 
       if (updateError) throw updateError;
 
-      if (!booking || booking.length === 0) {
-        throw new Error('Booking not found or could not be updated');
-      }
-
-      const updatedBooking = booking[0];
-
-      // Then, fetch the student's profile separately
+      // Get student profile
       const { data: studentProfile, error: profileError } = await supabase
         .from('profiles')
         .select('name, email')
-        .eq('id', updatedBooking.student_id)
+        .eq('id', booking.student_id)
         .single();
 
       if (profileError) {
         console.error('Error fetching student profile:', profileError);
-        return true; // Still return true as the booking was updated successfully
+        return true;
       }
 
-// ——— REEMPLAZO: nuevo bloque de notificaciones y emails ———
-// 1) Notificación + email al profesor
-const { data: teacherData, error: teacherError } = await supabase
-  .from('profiles')
-  .select('id, email, name')
-  .eq('role', 'teacher')
-  .single();
+      // Get teacher profile and send notification/email
+      const { data: teacherData, error: teacherError } = await supabase
+        .from('profiles')
+        .select('id, email, name')
+        .eq('role', 'teacher')
+        .single();
 
-if (!teacherError && teacherData) {
-  await supabase
-    .from('notifications')
-    .insert([{
-      user_id: teacherData.id,
-      type: 'cancellation',
-      title: 'Clase cancelada',
-      message: `${studentProfile.name} ha cancelado su clase del ${updatedBooking.date} de ${updatedBooking.startTime} a ${updatedBooking.endTime}`,
-      link: '/teacher/dashboard'
-    }]);
+      if (!teacherError && teacherData) {
+        // Create notification for teacher
+        await supabase
+          .from('notifications')
+          .insert([{
+            user_id: teacherData.id,
+            type: 'cancellation',
+            title: 'Clase cancelada',
+            message: `${studentProfile.name} ha cancelado su clase del ${booking.date} de ${booking.start_time} a ${booking.end_time}`,
+            link: '/teacher/dashboard'
+          }]);
 
-  const htmlCancelProf = `
-    <h1>❌ Clase cancelada por el estudiante</h1>
-    <p>Hola ${teacherData.name},</p>
-    <p>El estudiante <strong>${studentProfile.name}</strong> ha cancelado su clase:</p>
-    <ul>
-      <li><strong>Fecha:</strong> ${updatedBooking.date}</li>
-      <li><strong>Horario:</strong> ${updatedBooking.startTime} – ${updatedBooking.endTime}</li>
-      <li><strong>ID reserva:</strong> ${updatedBooking.id}</li>
-    </ul>
-    <p><a href="${window.location.origin}/teacher/dashboard">👉 Ver en mi panel</a></p>
-  `;
-  await sendEmail(
-    teacherData.email,
-    '❌ Clase cancelada por el estudiante',
-    htmlCancelProf
-  );
-}
+        // Send email to teacher
+        const teacherEmailBody = `
+          <h1>❌ Clase cancelada por el estudiante</h1>
+          <p>Hola ${teacherData.name},</p>
+          <p>El estudiante <strong>${studentProfile.name}</strong> ha cancelado su clase:</p>
+          <ul>
+            <li><strong>Fecha:</strong> ${booking.date}</li>
+            <li><strong>Horario:</strong> ${booking.start_time} – ${booking.end_time}</li>
+            <li><strong>ID reserva:</strong> ${booking.id}</li>
+          </ul>
+          <p>El horario queda disponible para nuevas reservas.</p>
+          <p><a href="${window.location.origin}/teacher/dashboard">👉 Ver en mi panel</a></p>
+        `;
 
-// 2) Email al estudiante
-const htmlCancelStudent = `
-  <h1>❌ Tu clase ha sido cancelada</h1>
-  <p>Hola ${studentProfile.name},</p>
-  <p>Tu clase del <strong>${updatedBooking.date}</strong> a las <strong>${updatedBooking.startTime}</strong> ha sido cancelada.</p>
-  <p><a href="${window.location.origin}/student/dashboard">👉 Reservar nueva clase</a></p>
-`;
-await sendEmail(
-  studentProfile.email,
-  '❌ Clase cancelada',
-  htmlCancelStudent
-);
+        await sendEmail(
+          teacherData.email,
+          '❌ Clase cancelada por el estudiante',
+          teacherEmailBody
+        );
+      }
 
-return true;
-// ——— FIN REEMPLAZO ———
+      // Send email to student
+      const studentEmailBody = `
+        <h1>❌ Tu clase ha sido cancelada</h1>
+        <p>Hola ${studentProfile.name},</p>
+        <p>Tu clase del <strong>${booking.date}</strong> a las <strong>${booking.start_time}</strong> ha sido cancelada.</p>
+        <p><a href="${window.location.origin}/student/dashboard">👉 Reservar nueva clase</a></p>
+      `;
 
-
-await supabase.functions.invoke('send-email', {
-  body: {
-    to:      teacherData.email,
-    subject: '❌ Clase cancelada por el estudiante',
-    body:    cancelHtml
-  }
-});
-// —————————————————————————————
-
-  }
-      // Crear notificación para el estudiante
-const studentCancelHtml = `
-  <h1>❌ Tu clase ha sido cancelada</h1>
-  <p>Hola ${studentProfile.name},</p>
-  <p>Tu clase del <strong>${updatedBooking.date}</strong> a las <strong>${updatedBooking.start_time}</strong> ha sido cancelada.</p>
-  <p>
-    <a href="${window.location.origin}/student/dashboard">
-      👉 Reservar nueva clase
-    </a>
-  </p>
-`;
-
-await supabase.functions.invoke('send-email', {
-  body: {
-    to:      studentProfile.email,
-    subject: '❌ Clase cancelada',
-    body:    studentCancelHtml
-  }
-});
+      await sendEmail(
+        studentProfile.email,
+        '❌ Clase cancelada',
+        studentEmailBody
+      );
 
       return true;
     } catch (error) {
@@ -486,21 +469,24 @@ await supabase.functions.invoke('send-email', {
             link: '/student/dashboard'
           }]);
 
-        // Send email to student (no bloquear si falla)
+        // Send email to student
+        const emailBody = `
+          <h1>✅ Clase completada</h1>
+          <p>¡Hola ${booking.profiles.name}!</p>
+          <p>Tu clase ha sido completada exitosamente:</p>
+          <ul>
+            <li><strong>Fecha:</strong> ${booking.date}</li>
+            <li><strong>Horario:</strong> ${booking.start_time} - ${booking.end_time}</li>
+          </ul>
+          <p>¡Esperamos que hayas disfrutado la clase!</p>
+          <p>¿Te gustaría reservar otra clase?</p>
+          <p><a href="${window.location.origin}/student/dashboard">Accede a tu panel</a></p>
+        `;
+
         await sendEmail(
           booking.profiles.email,
           '✅ Clase completada',
-          `¡Hola ${booking.profiles.name}!
-
-Tu clase ha sido completada exitosamente:
-
-📅 Fecha: ${booking.date}
-⏰ Horario: ${booking.start_time} - ${booking.end_time}
-
-¡Esperamos que hayas disfrutado la clase!
-
-¿Te gustaría reservar otra clase?
-Accede a tu panel: ${window.location.origin}/student/dashboard`
+          emailBody
         );
       }
 
@@ -531,60 +517,56 @@ Accede a tu panel: ${window.location.origin}/student/dashboard`
 
   const revertCompletedBooking = async (bookingId: string): Promise<boolean> => {
     try {
-      // First, update the booking
+      // Update the booking
       const { data: booking, error: updateError } = await supabase
         .from('bookings')
         .update({ status: 'cancelled' })
         .eq('id', bookingId)
         .select('*')
-        .order('id', { ascending: true })
-        .limit(1);
+        .single();
 
       if (updateError) throw updateError;
 
-      if (!booking || booking.length === 0) {
-        throw new Error('Booking not found or could not be updated');
-      }
-
-      const updatedBooking = booking[0];
-
-      // Then, fetch the student's profile separately
+      // Get student profile
       const { data: studentProfile, error: profileError } = await supabase
         .from('profiles')
         .select('name, email')
-        .eq('id', updatedBooking.student_id)
+        .eq('id', booking.student_id)
         .single();
 
       if (profileError) {
         console.error('Error fetching student profile:', profileError);
-        return true; // Still return true as the booking was updated successfully
+        return true;
       }
 
       // Create notification for student
       await supabase
         .from('notifications')
         .insert([{
-          user_id: updatedBooking.student_id,
+          user_id: booking.student_id,
           type: 'cancellation',
           title: 'Clase revertida',
-          message: `Tu clase completada del ${updatedBooking.date} de ${updatedBooking.start_time} a ${updatedBooking.end_time} ha sido revertida y cancelada`,
+          message: `Tu clase completada del ${booking.date} de ${booking.start_time} a ${booking.end_time} ha sido revertida y cancelada`,
           link: '/student/dashboard'
         }]);
 
-      // Send email to student (no bloquear si falla)
+      // Send email to student
+      const emailBody = `
+        <h1>🔄 Clase revertida</h1>
+        <p>Hola ${studentProfile.name},</p>
+        <p>Tu clase completada ha sido revertida y cancelada:</p>
+        <ul>
+          <li><strong>Fecha:</strong> ${booking.date}</li>
+          <li><strong>Horario:</strong> ${booking.start_time} - ${booking.end_time}</li>
+        </ul>
+        <p>Si tienes dudas sobre esta acción, por favor contacta con el profesor.</p>
+        <p><a href="${window.location.origin}/student/dashboard">Accede a tu panel</a></p>
+      `;
+
       await sendEmail(
         studentProfile.email,
         '🔄 Clase revertida',
-        `Hola ${studentProfile.name},
-
-Tu clase completada ha sido revertida y cancelada:
-
-📅 Fecha: ${updatedBooking.date}
-⏰ Horario: ${updatedBooking.start_time} - ${updatedBooking.end_time}
-
-Si tienes dudas sobre esta acción, por favor contacta con el profesor.
-
-Accede a tu panel: ${window.location.origin}/student/dashboard`
+        emailBody
       );
 
       return true;
@@ -595,107 +577,127 @@ Accede a tu panel: ${window.location.origin}/student/dashboard`
   };
 
   const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
-    const { data, error } = await supabase
-      .rpc('get_my_student_class_history', { input_student_id: studentId });
+    try {
+      const { data, error } = await supabase
+        .rpc('get_my_student_class_history', { input_student_id: studentId });
 
-    if (error) {
-      console.error('Error al llamar a la función RPC:', error);
+      if (error) {
+        console.error('Error calling RPC function:', error);
+        return [];
+      }
+
+      return data.map((booking: any) => ({
+        id: booking.booking_id,
+        studentId: booking.student_id,
+        studentName: booking.student_name,
+        date: booking.date,
+        startTime: booking.start_time,
+        endTime: booking.end_time,
+        status: booking.status,
+        notes: booking.notes,
+        price: booking.price,
+        createdAt: booking.created_at
+      }));
+    } catch (error) {
+      console.error('Error getting student bookings:', error);
       return [];
     }
-
-    return data.map((booking: any) => ({
-      id: booking.booking_id,
-      studentId: booking.student_id,
-      studentName: booking.student_name,
-      date: booking.date,
-      startTime: booking.start_time,
-      endTime: booking.end_time,
-      status: booking.status,
-      notes: booking.notes,
-      price: booking.price,
-      createdAt: booking.created_at
-    }));
   };
 
   const getTeacherBookings = async (): Promise<Booking[]> => {
-    const { data, error } = await supabase
-      .from('bookings')
-      .select('*, profiles(name)')
-      .order('date', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*, profiles(name)')
+        .order('date', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching teacher bookings:', error);
+      if (error) {
+        console.error('Error fetching teacher bookings:', error);
+        return [];
+      }
+
+      return data.map(booking => ({
+        id: booking.id,
+        studentId: booking.student_id,
+        studentName: booking.profiles?.name || 'Unknown',
+        date: booking.date,
+        startTime: booking.start_time,
+        endTime: booking.end_time,
+        status: booking.status,
+        meetingLink: booking.meeting_link,
+        customMeetingLink: booking.custom_meeting_link,
+        notes: booking.notes,
+        price: booking.price,
+        createdAt: booking.created_at
+      }));
+    } catch (error) {
+      console.error('Error getting teacher bookings:', error);
       return [];
     }
-
-    return data.map(booking => ({
-      id: booking.id,
-      studentId: booking.student_id,
-      studentName: booking.profiles?.name || 'Unknown',
-      date: booking.date,
-      startTime: booking.start_time,
-      endTime: booking.end_time,
-      status: booking.status,
-      meetingLink: booking.meeting_link,
-      customMeetingLink: booking.custom_meeting_link,
-      notes: booking.notes,
-      price: booking.price,
-      createdAt: booking.created_at
-    }));
   };
 
   const getPendingBookings = async (): Promise<Booking[]> => {
-    const { data, error } = await supabase
-      .from('bookings')
-      .select('*, profiles(name)')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*, profiles(name)')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
 
-    if (error) {
-      console.error('Error fetching pending bookings:', error);
+      if (error) {
+        console.error('Error fetching pending bookings:', error);
+        return [];
+      }
+
+      return data.map(booking => ({
+        id: booking.id,
+        studentId: booking.student_id,
+        studentName: booking.profiles?.name || 'Unknown',
+        date: booking.date,
+        startTime: booking.start_time,
+        endTime: booking.end_time,
+        status: booking.status,
+        notes: booking.notes,
+        price: booking.price,
+        createdAt: booking.created_at
+      }));
+    } catch (error) {
+      console.error('Error getting pending bookings:', error);
       return [];
     }
-
-    return data.map(booking => ({
-      id: booking.id,
-      studentId: booking.student_id,
-      studentName: booking.profiles?.name || 'Unknown',
-      date: booking.date,
-      startTime: booking.start_time,
-      endTime: booking.end_time,
-      status: booking.status,
-      notes: booking.notes,
-      price: booking.price,
-      createdAt: booking.created_at
-    }));
   };
 
   const getBookingsByDate = async (date: Date): Promise<Booking[]> => {
-    const { data, error } = await supabase
-      .from('bookings')
-      .select('*, profiles(name)')
-      .eq('date', format(date, 'yyyy-MM-dd'))
-      .order('start_time');
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*, profiles(name)')
+        .eq('date', format(date, 'yyyy-MM-dd'))
+        .order('start_time');
 
-    if (error) {
-      console.error('Error fetching bookings by date:', error);
+      if (error) {
+        console.error('Error fetching bookings by date:', error);
+        return [];
+      }
+
+      return data.map(booking => ({
+        id: booking.id,
+        studentId: booking.student_id,
+        studentName: booking.profiles?.name || 'Unknown',
+        date: booking.date,
+        startTime: booking.start_time,
+        endTime: booking.end_time,
+        status: booking.status,
+        meetingLink: booking.meeting_link,
+        customMeetingLink: booking.custom_meeting_link,
+        notes: booking.notes,
+        price: booking.price,
+        createdAt: booking.created_at
+      }));
+    } catch (error) {
+      console.error('Error getting bookings by date:', error);
       return [];
     }
-
-    return data.map(booking => ({
-      id: booking.id,
-      studentId: booking.student_id,
-      studentName: booking.profiles?.name || 'Unknown',
-      date: booking.date,
-      startTime: booking.start_time,
-      endTime: booking.end_time,
-      status: booking.status,
-      meetingLink: booking.meeting_link,
-      customMeetingLink: booking.custom_meeting_link,
-      notes: booking.notes,
-      price: booking.price,
-      createdAt: booking.created_at
-    }));
   };
 
   const blockTimeSlot = async (startDate: string, endDate: string, reason?: string): Promise<boolean> => {
@@ -710,7 +712,6 @@ Accede a tu panel: ${window.location.origin}/student/dashboard`
 
       if (error) throw error;
       
-      // Refresh blocked times after adding new one
       await fetchBlockedTimes();
       return true;
     } catch (error) {
@@ -729,7 +730,6 @@ Accede a tu panel: ${window.location.origin}/student/dashboard`
 
       if (error) throw error;
       
-      // Refresh blocked times after removing
       await fetchBlockedTimes();
       return true;
     } catch (error) {
@@ -819,6 +819,3 @@ export const useBooking = () => {
   }
   return context;
 };
-
-// IMPORTANTE: NO EXPORTAR useBookingContext por separado
-// Solo exportar useBooking para evitar conflictos con Fast Refresh
