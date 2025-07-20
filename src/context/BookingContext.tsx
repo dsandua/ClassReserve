@@ -341,7 +341,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const cancelBooking = async (bookingId: string): Promise<boolean> => {
+  const cancelBooking = async (bookingId: string, cancelledByTeacher: boolean = false): Promise<boolean> => {
     try {
       // Update the booking
       const { data: booking, error: updateError } = await supabase
@@ -364,6 +364,23 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
         console.error('Error fetching student profile:', profileError);
         return true;
       }
+      // --- Bloque para cancelación por parte del PROFESOR ---
+      if (cancelledByTeacher) {
+        // Envío email al alumno notificándole que el profesor canceló
+        await sendEmail(
+          studentProfile.email!,
+          '❌ Clase cancelada por el profesor',
+          `<h1>❌ Clase cancelada</h1>
+           <p>Hola ${studentProfile.name},</p>
+           <p>Tu clase programada para el <strong>${format(new Date(booking.date), 'dd/MM/yyyy')}</strong>
+           de <strong>${booking.start_time}</strong> a <strong>${booking.end_time}</strong>
+           ha sido cancelada por el profesor.</p>
+           <p>Disculpa las molestias. Puedes ver más detalles en tu panel:</p>
+           <p><a href="${window.location.origin}/student/dashboard">👉 Ir a mi panel</a></p>`
+        );
+        return true;
+    }
+// --- Fin del bloque para cancelación por PROFESOR ---
 
       // Get teacher profile and send notification/email
       const { data: teacherData, error: teacherError } = await supabase
