@@ -196,8 +196,18 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
         .from('bookings')
         .insert([{
           student_id: studentId,
-          date,
+  const cancelBooking = async (bookingId: string, cancelledByTeacher: boolean = false): Promise<boolean> => {
           start_time: startTime,
+      // Get current user to determine who is cancelling
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
+      // Get current user's profile
+      const { data: currentUserProfile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', currentUser?.id)
+        .single();
+
           end_time: endTime,
           status: 'pending',
           price: price,
@@ -208,48 +218,101 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
 
-      // Find teacher and send notification/email
+      // Get current user to determine who is creating the booking
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
+      // Get current user's profile
+      const { data: currentUserProfile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', currentUser?.id)
+        .single();
+
+      // Find teacher profile
       const { data: teacherData, error: teacherError } = await supabase
         .from('profiles')
         .select('id, email, name')
         .eq('role', 'teacher')
         .single();
 
-      if (!teacherError && teacherData) {
-        // Create notification for teacher
-        await supabase
-          .from('notifications')
-          .insert([{
-            user_id: teacherData.id,
-            type: 'booking',
-            title: 'Nueva solicitud de clase',
-            message: `${studentName} ha solicitado una clase para el ${format(new Date(date), 'dd/MM/yyyy')} de ${startTime} a ${endTime}`,
-            link: '/teacher/dashboard'
-          }]);
+      if (!teacherError && teacherData && currentUserProfile) {
+        if (currentUserProfile.role === 'student') {
+          // CASO B: Estudiante crea reserva → Email al profesor
+          await supabase
+            .from('notifications')
+            .insert([{
+              user_id: teacherData.id,
+              type: 'booking',
+              title: 'Nueva solicitud de clase',
+              message: `${studentName} ha solicitado una clase para el ${format(new Date(date), 'dd/MM/yyyy')} de ${startTime} a ${endTime}`,
+              link: '/teacher/dashboard'
+            }]);
 
-        // Send email to teacher
-        const emailBody = `
-          <h1>🎓 Nueva solicitud de clase</h1>
-          <p>Hola ${teacherData.name},</p>
-          <p>Has recibido una nueva solicitud de clase:</p>
-          <ul>
-            <li><strong>Estudiante:</strong> ${studentName}</li>
-            <li><strong>Fecha:</strong> ${format(new Date(date), 'dd/MM/yyyy')}</li>
-            <li><strong>Horario:</strong> ${startTime} – ${endTime}</li>
-          </ul>
-          <p>
-            <a href="${window.location.origin}/teacher/dashboard">
-              👉 Ir al panel de control
-            </a>
-          </p>
-          <p>¡Gracias por usar ClassReserve! 🚀</p>
-        `;
+          const emailBody = `
+            <h1>🎓 Nueva solicitud de clase</h1>
+            <p>Hola ${teacherData.name},</p>
+            <p>Has recibido una nueva solicitud de clase:</p>
+            <ul>
+              <li><strong>Estudiante:</strong> ${studentName}</li>
+              <li><strong>Fecha:</strong> ${format(new Date(date), 'dd/MM/yyyy')}</li>
+              <li><strong>Horario:</strong> ${startTime} – ${endTime}</li>
+            </ul>
+            <p>
+              <a href="${window.location.origin}/teacher/dashboard">
+                👉 Ir al panel de control
+              </a>
+            </p>
+            <p>¡Gracias por usar ClassReserve! 🚀</p>
+          `;
 
-        await sendEmail(
-          teacherData.email,
-          '🎓 Nueva solicitud de clase',
-          emailBody
-        );
+          await sendEmail(
+            teacherData.email,
+            '🎓 Nueva solicitud de clase',
+            emailBody
+          );
+        } else if (currentUserProfile.role === 'teacher') {
+          // CASO A: Profesor crea reserva → Email al estudiante
+          const { data: studentProfile } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('id', studentId)
+            .single();
+
+          if (studentProfile) {
+            await supabase
+              .from('notifications')
+              .insert([{
+                user_id: studentId,
+                type: 'booking',
+                title: 'Clase reservada por el profesor',
+                message: `El profesor ha reservado una clase para ti el ${format(new Date(date), 'dd/MM/yyyy')} de ${startTime} a ${endTime}`,
+                link: '/student/dashboard'
+              }]);
+
+            const emailBody = `
+              <h1>🎓 Clase reservada por el profesor</h1>
+              <p>Hola ${studentName},</p>
+              <p>El profesor ha reservado una clase para ti:</p>
+              <ul>
+                <li><strong>Fecha:</strong> ${format(new Date(date), 'dd/MM/yyyy')}</li>
+                <li><strong>Horario:</strong> ${startTime} – ${endTime}</li>
+                <li><strong>Estado:</strong> Pendiente de confirmación</li>
+              </ul>
+              <p>
+                <a href="${window.location.origin}/student/dashboard">
+                  👉 Ver en mi panel
+                </a>
+              </p>
+              <p>¡Nos vemos en clase! 📚</p>
+            `;
+
+            await sendEmail(
+              studentProfile.email,
+              '🎓 Clase reservada por el profesor',
+              emailBody
+            );
+          }
+        }
       }
 
       return {
@@ -364,76 +427,76 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
         console.error('Error fetching student profile:', profileError);
         return true;
       }
-      // --- Bloque para cancelación por parte del PROFESOR ---
-      if (cancelledByTeacher) {
-        // Envío email al alumno notificándole que el profesor canceló
-        await sendEmail(
-          studentProfile.email!,
-          '❌ Clase cancelada por el profesor',
-          `<h1>❌ Clase cancelada</h1>
-           <p>Hola ${studentProfile.name},</p>
-           <p>Tu clase programada para el <strong>${format(new Date(booking.date), 'dd/MM/yyyy')}</strong>
-           de <strong>${booking.start_time}</strong> a <strong>${booking.end_time}</strong>
-           ha sido cancelada por el profesor.</p>
-           <p>Disculpa las molestias. Puedes ver más detalles en tu panel:</p>
-           <p><a href="${window.location.origin}/student/dashboard">👉 Ir a mi panel</a></p>`
-        );
-        return true;
-    }
-// --- Fin del bloque para cancelación por PROFESOR ---
 
-      // Get teacher profile and send notification/email
+      // Get teacher profile
       const { data: teacherData, error: teacherError } = await supabase
         .from('profiles')
         .select('id, email, name')
         .eq('role', 'teacher')
         .single();
 
-      if (!teacherError && teacherData) {
-        // Create notification for teacher
-        await supabase
-          .from('notifications')
-          .insert([{
-            user_id: teacherData.id,
-            type: 'cancellation',
-            title: 'Clase cancelada',
-            message: `${studentProfile.name} ha cancelado su clase del ${format(new Date(booking.date), 'dd/MM/yyyy')} de ${booking.start_time} a ${booking.end_time}`,
-            link: '/teacher/dashboard'
-          }]);
+      if (!teacherError && teacherData && currentUserProfile) {
+        if (currentUserProfile.role === 'teacher') {
+          // CASO A: Profesor cancela → Email al estudiante
+          await supabase
+            .from('notifications')
+            .insert([{
+              user_id: booking.student_id,
+              type: 'cancellation',
+              title: 'Clase cancelada por el profesor',
+              message: `El profesor ha cancelado tu clase del ${format(new Date(booking.date), 'dd/MM/yyyy')} de ${booking.start_time} a ${booking.end_time}`,
+              link: '/student/dashboard'
+            }]);
 
-        // Send email to teacher
-        const teacherEmailBody = `
-          <h1>❌ Clase cancelada por el estudiante</h1>
-          <p>Hola ${teacherData.name},</p>
-          <p>El estudiante <strong>${studentProfile.name}</strong> ha cancelado su clase:</p>
-          <ul>
-            <li><strong>Fecha:</strong> ${format(new Date(booking.date), 'dd/MM/yyyy')}</li>
-            <li><strong>Horario:</strong> ${booking.start_time} – ${booking.end_time}</li>
-          </ul>
-          <p>El horario queda disponible para nuevas reservas.</p>
-          <p><a href="${window.location.origin}/teacher/dashboard">👉 Ver en mi panel</a></p>
-        `;
+          const studentEmailBody = `
+            <h1>❌ Clase cancelada por el profesor</h1>
+            <p>Hola ${studentProfile.name},</p>
+            <p>Tu clase programada ha sido cancelada por el profesor:</p>
+            <ul>
+              <li><strong>Fecha:</strong> ${format(new Date(booking.date), 'dd/MM/yyyy')}</li>
+              <li><strong>Horario:</strong> ${booking.start_time} – ${booking.end_time}</li>
+            </ul>
+            <p>Disculpa las molestias. Puedes contactar al profesor para reprogramar o reservar una nueva clase.</p>
+            <p><a href="${window.location.origin}/student/dashboard">👉 Ir a mi panel</a></p>
+          `;
 
-        await sendEmail(
-          teacherData.email,
-          '❌ Clase cancelada por el estudiante',
-          teacherEmailBody
-        );
+          await sendEmail(
+            studentProfile.email,
+            '❌ Clase cancelada por el profesor',
+            studentEmailBody
+          );
+
+        } else if (currentUserProfile.role === 'student') {
+          // CASO B: Estudiante cancela → Email al profesor
+          await supabase
+            .from('notifications')
+            .insert([{
+              user_id: teacherData.id,
+              type: 'cancellation',
+              title: 'Clase cancelada por el estudiante',
+              message: `${studentProfile.name} ha cancelado su clase del ${format(new Date(booking.date), 'dd/MM/yyyy')} de ${booking.start_time} a ${booking.end_time}`,
+              link: '/teacher/dashboard'
+            }]);
+
+          const teacherEmailBody = `
+            <h1>❌ Clase cancelada por el estudiante</h1>
+            <p>Hola ${teacherData.name},</p>
+            <p>El estudiante <strong>${studentProfile.name}</strong> ha cancelado su clase:</p>
+            <ul>
+              <li><strong>Fecha:</strong> ${format(new Date(booking.date), 'dd/MM/yyyy')}</li>
+              <li><strong>Horario:</strong> ${booking.start_time} – ${booking.end_time}</li>
+            </ul>
+            <p>El horario queda disponible para nuevas reservas.</p>
+            <p><a href="${window.location.origin}/teacher/dashboard">👉 Ver en mi panel</a></p>
+          `;
+
+          await sendEmail(
+            teacherData.email,
+            '❌ Clase cancelada por el estudiante',
+            teacherEmailBody
+          );
+        }
       }
-
-      // Send email to student
-      const studentEmailBody = `
-        <h1>❌ Tu clase ha sido cancelada</h1>
-        <p>Hola ${studentProfile.name},</p>
-        <p>Tu clase del <strong>${format(new Date(booking.date), 'dd/MM/yyyy')}</strong> a las <strong>${booking.start_time}</strong> ha sido cancelada.</p>
-        <p><a href="${window.location.origin}/student/dashboard">👉 Reservar nueva clase</a></p>
-      `;
-
-      await sendEmail(
-        studentProfile.email,
-        '❌ Clase cancelada',
-        studentEmailBody
-      );
 
       return true;
     } catch (error) {
