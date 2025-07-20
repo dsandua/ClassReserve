@@ -80,7 +80,7 @@ const BookingCard = ({
     
     try {
       setIsCancelling(true);
-      const success = await cancelBooking(booking.id, true);
+      const success = await cancelBooking(booking.id);
       
       if (success) {
         toast.success('Clase cancelada con éxito');
