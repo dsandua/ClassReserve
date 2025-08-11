@@ -139,55 +139,60 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const getAvailableTimeSlots = async (date: Date): Promise<TimeSlot[]> => {
-    try {
-      const dayOfWeek = date.getDay();
-      
-      const { data: availabilityData } = await supabase
-        .from('availability')
-        .select('*')
-        .eq('day_of_week', dayOfWeek);
-      
-      const dayAvailability = availabilityData?.[0];
-      
-      if (!dayAvailability || !dayAvailability.is_available) {
-        return [];
-      }
-      
-      const isDateBlocked = isTimeBlocked(date);
-      if (isDateBlocked) {
-        return [];
-      }
-      
-// Antes tenías algo como: .neq('status','cancelled') y un .some() por igualdad
-const { data: bookings } = await supabase
-  .from('bookings')
-  .select('start_time, end_time, status')
-  .eq('date', format(date, 'yyyy-MM-dd'))
-  .in('status', ['pending', 'confirmed']); // ← solo estados que bloquean
+  try {
+    const dayOfWeek = date.getDay();
 
-return (dayAvailability.slots ?? [])
-  .filter((slot: any) => {
-    // 1) ¿bloqueo específico?
-    const isSlotBlocked = isSpecificTimeBlocked(date, slot.startTime, slot.endTime);
-    if (isSlotBlocked) return false;
+    const { data: availabilityData } = await supabase
+      .from('availability')
+      .select('*')
+      .eq('day_of_week', dayOfWeek);
 
-    // 2) ¿solapa con alguna reserva? (no solo igualdad)
+    const dayAvailability = availabilityData?.[0];
+
+    if (!dayAvailability || !dayAvailability.is_available) {
+      return [];
+    }
+
+    // Día completamente bloqueado
+    if (isTimeBlocked(date)) {
+      return [];
+    }
+
+    // Solo bloquean 'pending' y 'confirmed'
+    const { data: bookings } = await supabase
+      .from('bookings')
+      .select('start_time, end_time, status')
+      .eq('date', format(date, 'yyyy-MM-dd'))
+      .in('status', ['pending', 'confirmed']);
+
     const overlaps = (aStart: string, aEnd: string, bStart: string, bEnd: string) =>
       !(aEnd <= bStart || aStart >= bEnd);
 
-    const isBooked = bookings?.some(b =>
-      overlaps(slot.startTime, slot.endTime, b.start_time, b.end_time)
-    );
+    return (dayAvailability.slots ?? [])
+      .filter((slot: any) => {
+        // Bloqueo específico por el profesor
+        if (isSpecificTimeBlocked(date, slot.startTime, slot.endTime)) return false;
 
-    return !isBooked;
-  })
-  .map((slot: any) => ({
-    id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
-    date: format(date, 'yyyy-MM-dd'),
-    startTime: slot.startTime,
-    endTime: slot.endTime,
-    isAvailable: true, // ya filtramos los no disponibles arriba
-  }));
+        // Solape con reservas existentes
+        const isBooked = bookings?.some(b =>
+          overlaps(slot.startTime, slot.endTime, b.start_time, b.end_time)
+        );
+
+        return !isBooked;
+      })
+      .map((slot: any) => ({
+        id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
+        date: format(date, 'yyyy-MM-dd'),
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        isAvailable: true,
+      }));
+  } catch (error) {
+    console.error('Error getting available time slots:', error);
+    return [];
+  }
+};
+
 
 
   const createBooking = async (
