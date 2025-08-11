@@ -158,34 +158,37 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
         return [];
       }
       
-      const { data: bookings } = await supabase
-        .from('bookings')
-        .select('*')
-        .eq('date', format(date, 'yyyy-MM-dd'))
-        .neq('status', 'cancelled');
-      
-      return dayAvailability.slots?.filter((slot: any) => {
-        // Check if this specific time slot is blocked
-        const isSlotBlocked = isSpecificTimeBlocked(date, slot.startTime, slot.endTime);
-        return !isSlotBlocked;
-      }).map((slot: any) => {
-        const isBooked = bookings?.some(booking => 
-          booking.start_time === slot.startTime && booking.end_time === slot.endTime
-        );
-        
-        return {
-          id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
-          date: format(date, 'yyyy-MM-dd'),
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          isAvailable: !isBooked,
-        };
-      }) || [];
-    } catch (error) {
-      console.error('Error getting available time slots:', error);
-      return [];
-    }
-  };
+// Antes tenías algo como: .neq('status','cancelled') y un .some() por igualdad
+const { data: bookings } = await supabase
+  .from('bookings')
+  .select('start_time, end_time, status')
+  .eq('date', format(date, 'yyyy-MM-dd'))
+  .in('status', ['pending', 'confirmed']); // ← solo estados que bloquean
+
+return (dayAvailability.slots ?? [])
+  .filter((slot: any) => {
+    // 1) ¿bloqueo específico?
+    const isSlotBlocked = isSpecificTimeBlocked(date, slot.startTime, slot.endTime);
+    if (isSlotBlocked) return false;
+
+    // 2) ¿solapa con alguna reserva? (no solo igualdad)
+    const overlaps = (aStart: string, aEnd: string, bStart: string, bEnd: string) =>
+      !(aEnd <= bStart || aStart >= bEnd);
+
+    const isBooked = bookings?.some(b =>
+      overlaps(slot.startTime, slot.endTime, b.start_time, b.end_time)
+    );
+
+    return !isBooked;
+  })
+  .map((slot: any) => ({
+    id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
+    date: format(date, 'yyyy-MM-dd'),
+    startTime: slot.startTime,
+    endTime: slot.endTime,
+    isAvailable: true, // ya filtramos los no disponibles arriba
+  }));
+
 
   const createBooking = async (
     studentId: string,
