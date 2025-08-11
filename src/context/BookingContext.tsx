@@ -51,6 +51,8 @@ export type BlockedTime = {
   id: string;
   startDate: string;
   endDate: string;
+  startTime?: string;
+  endTime?: string;
   reason?: string;
 };
 
@@ -67,8 +69,12 @@ type BookingContextType = {
   getPendingBookings: () => Promise<Booking[]>;
   getBookingsByDate: (date: Date) => Promise<Booking[]>;
   blockTimeSlot: (startDate: string, endDate: string, reason?: string) => Promise<boolean>;
+  blockTimeSlots: (date: string, timeSlots: { startTime: string; endTime: string; reason?: string }[]) => Promise<boolean>;
   unblockTimeSlot: (startDate: string, endDate: string) => Promise<boolean>;
+  deleteBlockedTimeSlot: (id: string) => Promise<boolean>;
   isTimeBlocked: (date: Date) => boolean;
+  isSpecificTimeBlocked: (date: Date, startTime: string, endTime: string) => boolean;
+  getBlockedTimeSlotsForDate: (date: Date) => BlockedTime[];
   availabilitySettings: DayAvailability[];
   updateAvailabilitySettings: (settings: DayAvailability[]) => Promise<boolean>;
   updateMeetingLink: (bookingId: string, meetingLink: string) => Promise<boolean>;
@@ -121,6 +127,8 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
         id: item.id,
         startDate: item.start_date,
         endDate: item.end_date,
+        startTime: item.start_time,
+        endTime: item.end_time,
         reason: item.reason
       }));
 
@@ -156,7 +164,11 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
         .eq('date', format(date, 'yyyy-MM-dd'))
         .neq('status', 'cancelled');
       
-      return dayAvailability.slots?.map((slot: any) => {
+      return dayAvailability.slots?.filter((slot: any) => {
+        // Check if this specific time slot is blocked
+        const isSlotBlocked = isSpecificTimeBlocked(date, slot.startTime, slot.endTime);
+        return !isSlotBlocked;
+      }).map((slot: any) => {
         const isBooked = bookings?.some(booking => 
           booking.start_time === slot.startTime && booking.end_time === slot.endTime
         );
@@ -721,6 +733,8 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
         .insert([{
           start_date: startDate,
           end_date: endDate,
+          start_time: null,
+          end_time: null,
           reason
         }]);
 
@@ -730,6 +744,30 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
       return true;
     } catch (error) {
       console.error('Error blocking time slot:', error);
+      return false;
+    }
+  };
+
+  const blockTimeSlots = async (date: string, timeSlots: { startTime: string; endTime: string; reason?: string }[]): Promise<boolean> => {
+    try {
+      const insertData = timeSlots.map(slot => ({
+        start_date: date,
+        end_date: date,
+        start_time: slot.startTime,
+        end_time: slot.endTime,
+        reason: slot.reason
+      }));
+
+      const { error } = await supabase
+        .from('blocked_times')
+        .insert(insertData);
+
+      if (error) throw error;
+      
+      await fetchBlockedTimes();
+      return true;
+    } catch (error) {
+      console.error('Error blocking time slots:', error);
       return false;
     }
   };
@@ -752,11 +790,70 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const deleteBlockedTimeSlot = async (id: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('blocked_times')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      await fetchBlockedTimes();
+      return true;
+    } catch (error) {
+      console.error('Error deleting blocked time slot:', error);
+      return false;
+    }
+  };
+
   const isTimeBlocked = (date: Date): boolean => {
+    const dateStr = format(date, 'yyyy-MM-dd');
     return blockedTimes.some(block => {
       const startDate = new Date(block.startDate);
       const endDate = new Date(block.endDate);
-      return date >= startDate && date <= endDate;
+      
+      // Check if it's a full day block (no specific times)
+      if (!block.startTime || !block.endTime) {
+        return date >= startDate && date <= endDate;
+      }
+      
+      // For time-specific blocks, only block if it's the same date
+      return dateStr === block.startDate;
+    });
+  };
+
+  const isSpecificTimeBlocked = (date: Date, startTime: string, endTime: string): boolean => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    
+    return blockedTimes.some(block => {
+      // Check if it's the same date
+      if (block.startDate !== dateStr || block.endDate !== dateStr) {
+        return false;
+      }
+      
+      // If it's a full day block, it blocks all times
+      if (!block.startTime || !block.endTime) {
+        return true;
+      }
+      
+      // Check if the requested time overlaps with the blocked time
+      const blockStart = block.startTime;
+      const blockEnd = block.endTime;
+      
+      return (
+        (startTime >= blockStart && startTime < blockEnd) ||
+        (endTime > blockStart && endTime <= blockEnd) ||
+        (startTime <= blockStart && endTime >= blockEnd)
+      );
+    });
+  };
+
+  const getBlockedTimeSlotsForDate = (date: Date): BlockedTime[] => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    
+    return blockedTimes.filter(block => {
+      return block.startDate === dateStr && block.endDate === dateStr && block.startTime && block.endTime;
     });
   };
 
@@ -808,8 +905,12 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     getPendingBookings,
     getBookingsByDate,
     blockTimeSlot,
+    blockTimeSlots,
     unblockTimeSlot,
+    deleteBlockedTimeSlot,
     isTimeBlocked,
+    isSpecificTimeBlocked,
+    getBlockedTimeSlotsForDate,
     availabilitySettings,
     updateAvailabilitySettings,
     updateMeetingLink,

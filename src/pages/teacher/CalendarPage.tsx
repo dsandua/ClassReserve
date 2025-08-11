@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { format, addMonths, subMonths, isSameDay, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, X, Unlock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, X, Unlock, Clock, Trash2 } from 'lucide-react';
 import { useBooking } from '../../hooks/useBooking';
-import { Booking } from '../../context/BookingContext';
+import { Booking, BlockedTime } from '../../context/BookingContext';
 import BookingCard from '../../components/booking/BookingCard';
 import toast from 'react-hot-toast';
 
@@ -17,18 +17,28 @@ const CalendarPage = () => {
   const [blockStartDate, setBlockStartDate] = useState('');
   const [blockEndDate, setBlockEndDate] = useState('');
   const [blockReason, setBlockReason] = useState('');
+  const [blockTimeSlots, setBlockTimeSlots] = useState<{ startTime: string; endTime: string; reason: string }[]>([
+    { startTime: '', endTime: '', reason: '' }
+  ]);
+  const [showTimeSlots, setShowTimeSlots] = useState(false);
   const [unblockStartDate, setUnblockStartDate] = useState('');
   const [unblockEndDate, setUnblockEndDate] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [showBlockedTimeSlots, setShowBlockedTimeSlots] = useState(false);
+  const [selectedDateForTimeSlots, setSelectedDateForTimeSlots] = useState<Date | null>(null);
   
   const { 
     getTeacherBookings, 
     getBookingsByDate, 
     confirmBooking, 
     cancelBooking,
-    blockTimeSlot,
+    blockTimeSlot as blockFullDay,
+    blockTimeSlots: blockSpecificTimeSlots,
     unblockTimeSlot,
+    deleteBlockedTimeSlot,
     isTimeBlocked,
+    isSpecificTimeBlocked,
+    getBlockedTimeSlotsForDate,
     availabilitySettings,
     fetchBlockedTimes
   } = useBooking();
@@ -66,6 +76,12 @@ const CalendarPage = () => {
   
   const handleDateClick = (date: Date) => {
     setSelectedDate(date);
+  };
+
+  const handleDateRightClick = (date: Date, e: React.MouseEvent) => {
+    e.preventDefault();
+    setSelectedDateForTimeSlots(date);
+    setShowBlockedTimeSlots(true);
   };
   
   const generateCalendarDays = () => {
@@ -174,34 +190,84 @@ const CalendarPage = () => {
     }
     
     try {
-      // Convert date strings to Date objects
-      const startDate = new Date(blockStartDate);
-      const endDate = new Date(blockEndDate);
-      
-      // Use startOfDay for start and endOfDay for end to ensure proper constraint satisfaction
-      const start = startOfDay(startDate);
-      const end = endOfDay(endDate);
-      
-      const success = await blockTimeSlot(
-        start.toISOString(),
-        end.toISOString(),
-        blockReason
-      );
-      
-      if (success) {
-        setIsBlockingTime(false);
-        setBlockStartDate('');
-        setBlockEndDate('');
-        setBlockReason('');
+      if (showTimeSlots && blockStartDate === blockEndDate) {
+        // Block specific time slots
+        const validTimeSlots = blockTimeSlots.filter(slot => 
+          slot.startTime && slot.endTime && slot.startTime < slot.endTime
+        );
         
-        // Refresh the calendar view
-        await fetchBookings();
+        if (validTimeSlots.length === 0) {
+          toast.error('Por favor, añade al menos un horario válido');
+          return;
+        }
         
-        toast.success('Período bloqueado con éxito');
+        const success = await blockSpecificTimeSlots(blockStartDate, validTimeSlots);
+        
+        if (success) {
+          resetBlockForm();
+          await fetchBookings();
+          toast.success(`${validTimeSlots.length} horario(s) bloqueado(s) con éxito`);
+        }
+      } else {
+        // Block full days
+        const startDate = new Date(blockStartDate);
+        const endDate = new Date(blockEndDate);
+        const start = startOfDay(startDate);
+        const end = endOfDay(endDate);
+        
+        const success = await blockFullDay(
+          start.toISOString(),
+          end.toISOString(),
+          blockReason
+        );
+        
+        if (success) {
+          resetBlockForm();
+          await fetchBookings();
+          toast.success('Período bloqueado con éxito');
+        }
       }
     } catch (error) {
       console.error('Error blocking time:', error);
       toast.error('Error al bloquear el período');
+    }
+  };
+
+  const resetBlockForm = () => {
+    setIsBlockingTime(false);
+    setBlockStartDate('');
+    setBlockEndDate('');
+    setBlockReason('');
+    setBlockTimeSlots([{ startTime: '', endTime: '', reason: '' }]);
+    setShowTimeSlots(false);
+  };
+
+  const addTimeSlot = () => {
+    setBlockTimeSlots([...blockTimeSlots, { startTime: '', endTime: '', reason: '' }]);
+  };
+
+  const removeTimeSlot = (index: number) => {
+    if (blockTimeSlots.length > 1) {
+      setBlockTimeSlots(blockTimeSlots.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateTimeSlot = (index: number, field: string, value: string) => {
+    const updated = [...blockTimeSlots];
+    updated[index] = { ...updated[index], [field]: value };
+    setBlockTimeSlots(updated);
+  };
+
+  const handleDeleteBlockedTimeSlot = async (id: string) => {
+    try {
+      const success = await deleteBlockedTimeSlot(id);
+      if (success) {
+        await fetchBookings();
+        toast.success('Horario desbloqueado con éxito');
+      }
+    } catch (error) {
+      console.error('Error deleting blocked time slot:', error);
+      toast.error('Error al desbloquear el horario');
     }
   };
 
@@ -315,13 +381,23 @@ const CalendarPage = () => {
                     dayClasses += ' font-bold ring-2 ring-primary-500 ring-offset-2';
                   }
                   
+                  const blockedTimeSlots = getBlockedTimeSlotsForDate(dayObj.date);
+                  const hasTimeSlots = blockedTimeSlots.length > 0;
+                  
                   return (
                     <div
                       key={dayObj.day}
                       className={dayClasses}
                       onClick={() => handleDateClick(dayObj.date)}
+                      onContextMenu={(e) => handleDateRightClick(dayObj.date, e)}
                     >
                       <span className="text-sm">{dayObj.day}</span>
+                      
+                      {hasTimeSlots && (
+                        <div className="absolute top-1 right-1">
+                          <Clock className="h-3 w-3 text-warning-600" />
+                        </div>
+                      )}
                       
                       <div className="absolute bottom-1 flex space-x-1">
                         {dayObj.hasPendingBookings && (
@@ -374,6 +450,12 @@ const CalendarPage = () => {
               <div className="flex items-center">
                 <div className="w-4 h-4 rounded bg-primary-100 border border-primary-500 mr-2"></div>
                 <span className="text-sm text-gray-700">Seleccionado</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-4 h-4 rounded bg-white border border-gray-200 mr-2 relative">
+                  <Clock className="h-2 w-2 text-warning-600 absolute top-0.5 right-0.5" />
+                </div>
+                <span className="text-sm text-gray-700">Horarios específicos bloqueados</span>
               </div>
             </div>
           </div>
@@ -439,7 +521,14 @@ const CalendarPage = () => {
                     id="startDate"
                     className="input"
                     value={blockStartDate}
-                    onChange={(e) => setBlockStartDate(e.target.value)}
+                    onChange={(e) => {
+                      setBlockStartDate(e.target.value);
+                      if (e.target.value === blockEndDate) {
+                        setShowTimeSlots(true);
+                      } else {
+                        setShowTimeSlots(false);
+                      }
+                    }}
                     required
                   />
                 </div>
@@ -453,32 +542,108 @@ const CalendarPage = () => {
                     id="endDate"
                     className="input"
                     value={blockEndDate}
-                    onChange={(e) => setBlockEndDate(e.target.value)}
+                    onChange={(e) => {
+                      setBlockEndDate(e.target.value);
+                      if (e.target.value === blockStartDate) {
+                        setShowTimeSlots(true);
+                      } else {
+                        setShowTimeSlots(false);
+                      }
+                    }}
                     min={blockStartDate}
                     required
                   />
                 </div>
                 
-                <div>
-                  <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mb-1">
-                    Motivo (opcional)
-                  </label>
-                  <input
-                    type="text"
-                    id="reason"
-                    className="input"
-                    placeholder="Ej: Vacaciones, día festivo..."
-                    value={blockReason}
-                    onChange={(e) => setBlockReason(e.target.value)}
-                  />
-                </div>
+                {showTimeSlots ? (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Horarios específicos
+                      </label>
+                      <button
+                        type="button"
+                        onClick={addTimeSlot}
+                        className="text-sm text-primary-600 hover:text-primary-700 flex items-center"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Añadir horario
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {blockTimeSlots.map((slot, index) => (
+                        <div key={index} className="border border-gray-200 rounded-md p-3">
+                          <div className="grid grid-cols-2 gap-3 mb-2">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">
+                                Hora inicio
+                              </label>
+                              <input
+                                type="time"
+                                className="input text-sm"
+                                value={slot.startTime}
+                                onChange={(e) => updateTimeSlot(index, 'startTime', e.target.value)}
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">
+                                Hora fin
+                              </label>
+                              <input
+                                type="time"
+                                className="input text-sm"
+                                value={slot.endTime}
+                                onChange={(e) => updateTimeSlot(index, 'endTime', e.target.value)}
+                                required
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <input
+                              type="text"
+                              className="input text-sm flex-1 mr-2"
+                              placeholder="Motivo (opcional)"
+                              value={slot.reason}
+                              onChange={(e) => updateTimeSlot(index, 'reason', e.target.value)}
+                            />
+                            {blockTimeSlots.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeTimeSlot(index)}
+                                className="text-error-600 hover:text-error-700"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mb-1">
+                      Motivo (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      id="reason"
+                      className="input"
+                      placeholder="Ej: Vacaciones, día festivo..."
+                      value={blockReason}
+                      onChange={(e) => setBlockReason(e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
               
               <div className="mt-6 flex justify-end space-x-3">
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setIsBlockingTime(false)}
+                  onClick={resetBlockForm}
                 >
                   Cancelar
                 </button>
@@ -486,7 +651,7 @@ const CalendarPage = () => {
                   type="submit"
                   className="btn btn-primary"
                 >
-                  Bloquear período
+                  {showTimeSlots ? 'Bloquear horarios' : 'Bloquear período'}
                 </button>
               </div>
             </form>
@@ -555,6 +720,63 @@ const CalendarPage = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Blocked Time Slots Modal */}
+      {showBlockedTimeSlots && selectedDateForTimeSlots && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 animate-slide-in">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-medium text-gray-900">
+                Horarios bloqueados - {format(selectedDateForTimeSlots, "d 'de' MMMM", { locale: es })}
+              </h3>
+              <button
+                className="text-gray-400 hover:text-gray-500"
+                onClick={() => setShowBlockedTimeSlots(false)}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-4">
+              {(() => {
+                const blockedSlots = getBlockedTimeSlotsForDate(selectedDateForTimeSlots);
+                
+                if (blockedSlots.length === 0) {
+                  return (
+                    <p className="text-gray-500 text-center py-4">
+                      No hay horarios específicos bloqueados para este día.
+                    </p>
+                  );
+                }
+                
+                return (
+                  <div className="space-y-3">
+                    {blockedSlots.map((slot) => (
+                      <div key={slot.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-md">
+                        <div>
+                          <div className="font-medium text-gray-900">
+                            {slot.startTime?.slice(0, 5)} - {slot.endTime?.slice(0, 5)}
+                          </div>
+                          {slot.reason && (
+                            <div className="text-sm text-gray-500">{slot.reason}</div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleDeleteBlockedTimeSlot(slot.id)}
+                          className="text-error-600 hover:text-error-700"
+                          title="Desbloquear este horario"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}
