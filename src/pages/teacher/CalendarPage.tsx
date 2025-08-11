@@ -32,7 +32,7 @@ const CalendarPage = () => {
     getBookingsByDate, 
     confirmBooking, 
     cancelBooking,
-    blockTimeSlot as blockFullDay,
+    blockTimeSlot: blockFullDay,
     blockTimeSlots: blockSpecificTimeSlots,
     unblockTimeSlot,
     deleteBlockedTimeSlot,
