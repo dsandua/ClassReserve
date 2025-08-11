@@ -191,9 +191,6 @@ return (dayAvailability.slots ?? [])
 
     return !isBooked;
   })
-
-        return !isBooked;
-      })
       .map((slot: any) => ({
         id: `${format(date, 'yyyy-MM-dd')}-${slot.startTime}`,
         date: format(date, 'yyyy-MM-dd'),
