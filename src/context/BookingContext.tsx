@@ -165,18 +165,32 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
       .eq('date', format(date, 'yyyy-MM-dd'))
       .in('status', ['pending', 'confirmed']);
 
-    const overlaps = (aStart: string, aEnd: string, bStart: string, bEnd: string) =>
-      !(aEnd <= bStart || aStart >= bEnd);
+// convertir "HH:mm" o "HH:mm:ss" a minutos para comparar bien
+const toMinutes = (t: string) => {
+  const [h, m] = t.split(':'); // ignorar segundos si existen
+  return parseInt(h, 10) * 60 + parseInt(m || '0', 10);
+};
 
-    return (dayAvailability.slots ?? [])
-      .filter((slot: any) => {
-        // Bloqueo específico por el profesor
-        if (isSpecificTimeBlocked(date, slot.startTime, slot.endTime)) return false;
+const overlaps = (aStart: string, aEnd: string, bStart: string, bEnd: string) => {
+  const aS = toMinutes(aStart);
+  const aE = toMinutes(aEnd);
+  const bS = toMinutes(bStart);
+  const bE = toMinutes(bEnd);
+  return !(aE <= bS || aS >= bE);
+};
 
-        // Solape con reservas existentes
-        const isBooked = bookings?.some(b =>
-          overlaps(slot.startTime, slot.endTime, b.start_time, b.end_time)
-        );
+return (dayAvailability.slots ?? [])
+  .filter((slot: any) => {
+    // Bloqueo específico por el profesor
+    if (isSpecificTimeBlocked(date, slot.startTime, slot.endTime)) return false;
+
+    // Solape con reservas existentes
+    const isBooked = bookings?.some(b =>
+      overlaps(slot.startTime, slot.endTime, b.start_time, b.end_time)
+    );
+
+    return !isBooked;
+  })
 
         return !isBooked;
       })
