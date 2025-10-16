@@ -2,7 +2,7 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -37,26 +37,8 @@ Deno.serve(async (req) => {
       })
     }
 
-    // For testing purposes, only send emails to verified addresses
-    // In production, you should verify your own domain at resend.com/domains
-    const allowedTestEmails = ['dsandua@gmail.com'] // Add your verified email addresses here
-    const isTestingMode = true // Set to false when you have a verified domain
-    
-    if (isTestingMode && !allowedTestEmails.includes(to)) {
-      console.log(`Email would be sent to ${to} with subject: ${subject}`)
-      console.log(`Email body: ${body}`)
-      
-      // Return success but don't actually send the email
-      return new Response(JSON.stringify({ 
-        success: true,
-        message: 'Email logged (testing mode)', 
-        recipient: to,
-        subject: subject 
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    // Log email attempt for debugging
+    console.log(`Attempting to send email to ${to} with subject: ${subject}`)
 
     try {
       const response = await fetch('https://api.resend.com/emails', {
@@ -66,7 +48,7 @@ Deno.serve(async (req) => {
           'Authorization': `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: 'onboarding@resend.dev', // Change this to your verified domain email when ready
+          from: 'onboarding@resend.dev',
           to: [to],
           subject: subject,
           html: `
@@ -102,6 +84,7 @@ Deno.serve(async (req) => {
       }
 
       const data = await response.json()
+      console.log('Email sent successfully:', data)
       return new Response(JSON.stringify({ 
         success: true, 
         data: data 
