@@ -129,10 +129,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session && mounted) {
           await setUserFromSession(session);
+        } else if (mounted) {
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
-      } finally {
         if (mounted) setIsLoading(false);
       }
     };
@@ -147,6 +148,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false);
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         await setUserFromSession(session);
+        setIsLoading(false);
+      } else if (event === 'INITIAL_SESSION') {
+        if (session) {
+          await setUserFromSession(session);
+        }
         setIsLoading(false);
       }
     };
@@ -248,11 +254,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     try {
+      setIsLoading(true);
       await supabase.auth.signOut();
       setUser(null);
+      setIsLoading(false);
     } catch (error) {
       console.error('Logout error:', error);
       setUser(null);
+      setIsLoading(false);
     }
   };
 

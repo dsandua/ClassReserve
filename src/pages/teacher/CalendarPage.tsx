@@ -183,30 +183,48 @@ const CalendarPage = () => {
   
   const handleBlockTime = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!blockStartDate || !blockEndDate) {
       toast.error('Por favor, selecciona las fechas de inicio y fin');
       return;
     }
-    
+
     try {
       if (showTimeSlots && blockStartDate === blockEndDate) {
-        // Block specific time slots
-        const validTimeSlots = blockTimeSlots.filter(slot => 
+        // Check if user has added specific time slots
+        const validTimeSlots = blockTimeSlots.filter(slot =>
           slot.startTime && slot.endTime && slot.startTime < slot.endTime
         );
-        
-        if (validTimeSlots.length === 0) {
-          toast.error('Por favor, añade al menos un horario válido');
-          return;
-        }
-        
-        const success = await blockSpecificTimeSlots(blockStartDate, validTimeSlots);
-        
-        if (success) {
-          resetBlockForm();
-          await fetchBookings();
-          toast.success(`${validTimeSlots.length} horario(s) bloqueado(s) con éxito`);
+
+        if (validTimeSlots.length > 0) {
+          // Block specific time slots
+          const success = await blockSpecificTimeSlots(blockStartDate, validTimeSlots);
+
+          if (success) {
+            resetBlockForm();
+            await fetchBookings();
+            await fetchBlockedTimes();
+            toast.success(`${validTimeSlots.length} horario(s) bloqueado(s) con éxito`);
+          }
+        } else {
+          // Block full day if no time slots specified
+          const startDate = new Date(blockStartDate);
+          const endDate = new Date(blockEndDate);
+          const start = startOfDay(startDate);
+          const end = endOfDay(endDate);
+
+          const success = await blockFullDay(
+            start.toISOString(),
+            end.toISOString(),
+            blockReason
+          );
+
+          if (success) {
+            resetBlockForm();
+            await fetchBookings();
+            await fetchBlockedTimes();
+            toast.success('Día bloqueado con éxito');
+          }
         }
       } else {
         // Block full days
@@ -214,16 +232,17 @@ const CalendarPage = () => {
         const endDate = new Date(blockEndDate);
         const start = startOfDay(startDate);
         const end = endOfDay(endDate);
-        
+
         const success = await blockFullDay(
           start.toISOString(),
           end.toISOString(),
           blockReason
         );
-        
+
         if (success) {
           resetBlockForm();
           await fetchBookings();
+          await fetchBlockedTimes();
           toast.success('Período bloqueado con éxito');
         }
       }
@@ -523,7 +542,7 @@ const CalendarPage = () => {
                     value={blockStartDate}
                     onChange={(e) => {
                       setBlockStartDate(e.target.value);
-                      if (e.target.value === blockEndDate) {
+                      if (e.target.value === blockEndDate && e.target.value) {
                         setShowTimeSlots(true);
                       } else {
                         setShowTimeSlots(false);
@@ -532,7 +551,7 @@ const CalendarPage = () => {
                     required
                   />
                 </div>
-                
+
                 <div>
                   <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
                     Fecha de fin
@@ -544,7 +563,7 @@ const CalendarPage = () => {
                     value={blockEndDate}
                     onChange={(e) => {
                       setBlockEndDate(e.target.value);
-                      if (e.target.value === blockStartDate) {
+                      if (e.target.value === blockStartDate && e.target.value) {
                         setShowTimeSlots(true);
                       } else {
                         setShowTimeSlots(false);
@@ -554,12 +573,12 @@ const CalendarPage = () => {
                     required
                   />
                 </div>
-                
-                {showTimeSlots ? (
+
+                {showTimeSlots && (
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <label className="block text-sm font-medium text-gray-700">
-                        Horarios específicos
+                        Horarios específicos (opcional)
                       </label>
                       <button
                         type="button"
@@ -570,7 +589,7 @@ const CalendarPage = () => {
                         Añadir horario
                       </button>
                     </div>
-                    
+
                     <div className="space-y-3">
                       {blockTimeSlots.map((slot, index) => (
                         <div key={index} className="border border-gray-200 rounded-md p-3">
@@ -584,7 +603,6 @@ const CalendarPage = () => {
                                 className="input text-sm"
                                 value={slot.startTime}
                                 onChange={(e) => updateTimeSlot(index, 'startTime', e.target.value)}
-                                required
                               />
                             </div>
                             <div>
@@ -596,7 +614,6 @@ const CalendarPage = () => {
                                 className="input text-sm"
                                 value={slot.endTime}
                                 onChange={(e) => updateTimeSlot(index, 'endTime', e.target.value)}
-                                required
                               />
                             </div>
                           </div>
@@ -622,7 +639,9 @@ const CalendarPage = () => {
                       ))}
                     </div>
                   </div>
-                ) : (
+                )}
+
+                {!showTimeSlots && (
                   <div>
                     <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mb-1">
                       Motivo (opcional)
