@@ -116,14 +116,23 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchBlockedTimes = async (): Promise<void> => {
     try {
-      const { data, error } = await supabase
-        .from('blocked_times')
-        .select('*')
-        .order('start_date');
+      // Fetch from both tables
+      const [blockedTimesRes, blockedTimeSlotsRes] = await Promise.all([
+        supabase
+          .from('blocked_times')
+          .select('*')
+          .order('start_date'),
+        supabase
+          .from('blocked_time_slots')
+          .select('*')
+          .order('date')
+      ]);
 
-      if (error) throw error;
+      if (blockedTimesRes.error) throw blockedTimesRes.error;
 
-      const formattedBlockedTimes = data.map(item => ({
+      const blockedTimesData = blockedTimesRes.data || [];
+
+      const formattedBlockedTimes = blockedTimesData.map(item => ({
         id: item.id,
         startDate: item.start_date,
         endDate: item.end_date,
@@ -131,6 +140,19 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
         endTime: item.end_time,
         reason: item.reason
       }));
+
+      // Add blocked time slots
+      if (!blockedTimeSlotsRes.error && blockedTimeSlotsRes.data) {
+        const blockedTimeSlots = blockedTimeSlotsRes.data.map(item => ({
+          id: item.id,
+          startDate: item.date,
+          endDate: item.date,
+          startTime: item.startTime,
+          endTime: item.endTime,
+          reason: item.reason
+        }));
+        formattedBlockedTimes.push(...blockedTimeSlots);
+      }
 
       setBlockedTimes(formattedBlockedTimes);
     } catch (error) {
@@ -769,20 +791,22 @@ return (dayAvailability.slots ?? [])
 
   const blockTimeSlots = async (date: string, timeSlots: { startTime: string; endTime: string; reason?: string }[]): Promise<boolean> => {
     try {
+      // Extract just the date part (YYYY-MM-DD) if it's an ISO string
+      const dateOnly = date.includes('T') ? date.split('T')[0] : date;
+
       const insertData = timeSlots.map(slot => ({
-        start_date: date,
-        end_date: date,
-        start_time: slot.startTime,
-        end_time: slot.endTime,
-        reason: slot.reason
+        date: dateOnly,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        reason: slot.reason || null
       }));
 
       const { error } = await supabase
-        .from('blocked_times')
+        .from('blocked_time_slots')
         .insert(insertData);
 
       if (error) throw error;
-      
+
       await fetchBlockedTimes();
       return true;
     } catch (error) {
@@ -811,13 +835,30 @@ return (dayAvailability.slots ?? [])
 
   const deleteBlockedTimeSlot = async (id: string): Promise<boolean> => {
     try {
-      const { error } = await supabase
+      // Try to delete from blocked_time_slots first
+      const { error: slotError } = await supabase
+        .from('blocked_time_slots')
+        .delete()
+        .eq('id', id);
+
+      // If not found in blocked_time_slots, try blocked_times
+      if (slotError && slotError.code !== 'PGRST116') {
+        throw slotError;
+      }
+
+      if (!slotError) {
+        await fetchBlockedTimes();
+        return true;
+      }
+
+      // Try deleting from blocked_times if not in blocked_time_slots
+      const { error: timesError } = await supabase
         .from('blocked_times')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
-      
+      if (timesError) throw timesError;
+
       await fetchBlockedTimes();
       return true;
     } catch (error) {
