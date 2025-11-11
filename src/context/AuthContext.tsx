@@ -191,12 +191,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const userData = await setUserFromSession(data.session);
       if (!userData) {
+        setIsLoading(false);
         return { success: false, error: 'Error al obtener el perfil de usuario' };
       }
 
       // Return success with the appropriate redirect path based on user role
-      return { 
-        success: true, 
+      setIsLoading(false);
+      return {
+        success: true,
         redirectTo: userData.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard'
       };
 
